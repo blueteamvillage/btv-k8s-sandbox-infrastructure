@@ -1,4 +1,4 @@
-# DC34 K8s Sandbox — Blue Team Village CTF
+I'm# DC34 K8s Sandbox — Blue Team Village CTF
 
 Welcome, defender! This repository stands up the **local Kubernetes sandbox you'll compete in** during the **Blue Team Village CTF at DEF CON 34** (Project Obsidian). One command builds a self-contained cluster on your own laptop — complete with runtime telemetry and security guardrails — and the CTF challenges deploy straight into it during the event.
 
@@ -90,17 +90,6 @@ Two kinds of challenges:
 
 - **Standalone** (`challenge-<NNN>.pod.yaml`) — each deploys into its own `challenge-<NNN>` namespace.
 - **Converged Frontier scenarios** (`challenge-001-s<NNN>-*.challenge.pod.yaml`) — ten scenarios, each in a **`-beginner`** and a **`-pro`** variant; pick the track that fits you. They all share the `converged-frontier` namespace and can run side by side.
-
-### Challenge images
-
-The images are **private until the event**. Pull the image on your machine and load it into the cluster (the pods use `imagePullPolicy: IfNotPresent`, so the loaded image is used without any in-cluster registry setup):
-
-```sh
-docker pull ghcr.io/blueteamvillage/challenge-000:latest
-minikube -p dc34 image load ghcr.io/blueteamvillage/challenge-000:latest
-```
-
-Build the sandbox ahead of time, and you'll be ready to pull and play the moment doors open.
 
 ### Removing a challenge
 

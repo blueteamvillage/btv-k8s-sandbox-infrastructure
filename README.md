@@ -104,7 +104,7 @@ Two kinds of challenges:
 - **Converged Frontier scenarios** (`challenge-001-s<NNN>-*.challenge.pod.yaml`) — ten scenarios, each in a **`-beginner`** and a **`-pro`** variant; pick the track that fits you. They all share the `converged-frontier` namespace and can run side by side.
   - Zero-padding differs on purpose: file/pod/image names use `s001`–`s010`, while the pod label and the CTF site use `s01`–`s10`. Site scenario S01 is `challenge-001-s001-*`, selectable with `-l scenario=s01`.
 
-The **live-malware ("Option B") variants** described on the CTF site are *not* in this repo — the organizers distribute those manifests (and the policy exceptions they need) during the event. Everything in [`challenges/`](challenges) is an inert forensic snapshot.
+The **live-malware ("Option B") variants** described on the CTF site are *not* in this repo — everything in [`challenges/`](challenges) is an inert forensic snapshot. Option B materials come through the event channels (MetaCTF challenge briefings, BTV staff, Discord), not this repository.
 
 ### Removing a challenge
 

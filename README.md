@@ -4,11 +4,11 @@ Welcome, defender! This repository stands up the **local Kubernetes sandbox you'
 
 Nothing here touches shared infrastructure: the whole environment lives in a VM on your machine, and you can pause it or wipe it whenever you want.
 
-## What `make up` builds
+## What the sandbox looks like
 
 ```
 Your laptop
-└── colima VM (4 CPU / 8 GB)          ← lightweight Linux VM running Docker
+└── Linux VM running Docker           ← colima on macOS, Docker Desktop (WSL2) on Windows
     └── minikube cluster "dc34"       ← single-node Kubernetes
         ├── Cilium                    ← CNI: pod networking + NetworkPolicy enforcement
         ├── Tetragon                  ← eBPF runtime observability (process/syscall events)
@@ -23,34 +23,49 @@ Why you care as a contestant:
 
 ## Requirements
 
-- **macOS** with [Homebrew](https://brew.sh) — the `make` workflow targets macOS and installs everything else for you (see [`Brewfile`](Brewfile): minikube, kubectl, helm, helmfile, k9s, colima, docker CLI).
-- **~4 CPU cores and 8 GB RAM free** for the VM, plus a few GB of disk.
-- **A GitHub account**, for pulling challenge images during the event (see below).
+All platforms: **~4 CPU cores and 8 GB RAM free** for the VM, ~20 GB of disk, and **a GitHub account** for pulling challenge images during the event (see below).
 
-> **Linux / Windows (WSL2):** colima is just a Docker runtime for macOS — everything else is cross-platform. Install `minikube`, `kubectl`, `helm`, and `helmfile` yourself, point Docker at your local daemon, then run the same `minikube start --profile dc34 --driver=docker --cpus=4 --memory=6144 --cni=cilium --addons=metrics-server` followed by `helmfile sync`. Ask in the BTV Discord if you get stuck.
+- **macOS** — [Homebrew](https://brew.sh); the `make` workflow installs everything else (see [`Brewfile`](Brewfile): minikube, kubectl, helm, helmfile, k9s, colima, docker CLI).
+- **Windows 10/11** — winget + Docker Desktop (WSL2 engine); `windows\start.cmd tools` installs everything else. See [`windows/README.md`](windows/README.md).
+- **Linux** — everything except colima is cross-platform. Install `minikube`, `kubectl`, `helm`, and `helmfile`, point Docker at your local daemon, then run the same `minikube start --profile dc34 --driver=docker --cpus=4 --memory=6144 --cni=cilium --addons=metrics-server` followed by `helmfile sync`. Ask in the BTV Discord if you get stuck.
 
 ## Quick start
+
+Clone the repo:
 
 ```sh
 git clone https://github.com/blueteamvillage/btv-k8s-sandbox-infrastructure.git
 cd btv-k8s-sandbox-infrastructure
+```
+
+**macOS:**
+
+```sh
 make up
+```
+
+**Windows** (PowerShell or cmd — full guide in [`windows/README.md`](windows/README.md)):
+
+```powershell
+windows\start.cmd tools    # once; then start Docker Desktop and open a new terminal
+windows\start.cmd up
 ```
 
 First run takes several minutes (VM image, cluster bootstrap, Helm charts). Verify everything is healthy:
 
 ```sh
-make status
+make status                          # Windows: windows\start.cmd verify
 kubectl --context dc34 get pods -A   # everything Running/Completed
 ```
 
-| Target | What it does |
-|---|---|
-| `make up` | Install tools, start the VM + cluster, deploy the sandbox stack. Safe to re-run. |
-| `make status` | Show VM and cluster health. |
-| `make stop` | Pause the cluster — **state is preserved**, `make up` resumes where you left off. |
-| `make clean` | Tear down **everything**, including the VM disk. Full reset. |
-| `make tools` | Just install/update the CLI tools via Homebrew. |
+| macOS | Windows | What it does |
+|---|---|---|
+| `make up` | `start.cmd up` | Start the VM + cluster, deploy the sandbox stack. Safe to re-run. |
+| `make status` | `start.cmd status` | Show VM and cluster health. |
+| — | `start.cmd verify` | Automated health check (cluster, nodes, Tetragon, Kyverno). |
+| `make stop` | `start.cmd stop` | Pause the cluster — **state is preserved**, `up` resumes where you left off. |
+| `make clean` | `start.cmd clean` | Tear down everything (macOS: including the VM disk). Full reset. |
+| `make tools` | `start.cmd tools` | Just install/update the CLI tools (Homebrew / winget). |
 
 ## Getting the challenges
 
@@ -111,15 +126,16 @@ kubectl --context dc34 get networkpolicy,resourcequota,limitrange -n <namespace>
 
 ## Troubleshooting
 
-- **`make up` failed partway** — it's idempotent; just run it again. `helmfile sync` picks up where it left off.
-- **Docker commands hit the wrong daemon** — this setup uses the Docker context `colima-dc34`. `make` exports it automatically; in a plain shell run `docker context use colima-dc34`.
+- **`up` failed partway** — it's idempotent; just run it again. `helmfile sync` picks up where it left off.
+- **Docker commands hit the wrong daemon** (macOS) — this setup uses the Docker context `colima-dc34`. `make` exports it automatically; in a plain shell run `docker context use colima-dc34`.
 - **Everything is slow / pods evicted** — the VM has 8 GB RAM and 4 CPUs. Close other heavy apps, or bump the numbers in the [`Makefile`](Makefile) if your machine has headroom.
-- **Weird unrecoverable state** — `make clean` then `make up` gives you a factory-fresh sandbox in minutes.
+- **Weird unrecoverable state** — `clean` then `up` gives you a factory-fresh sandbox in minutes.
+- **Windows-specific issues** (Docker Desktop, WSL2, Git Bash, execution policy) — see [`windows/README.md`](windows/README.md#troubleshooting).
 
 ## After the competition
 
-- `make stop` — pause the sandbox and free CPU/RAM; your cluster state survives.
-- `make clean` — delete the cluster, the VM, and its disk entirely.
+- `make stop` / `windows\start.cmd stop` — pause the sandbox and free CPU/RAM; your cluster state survives.
+- `make clean` / `windows\start.cmd clean` — delete the cluster (and on macOS the VM and its disk) entirely.
 
 ## Getting help
 

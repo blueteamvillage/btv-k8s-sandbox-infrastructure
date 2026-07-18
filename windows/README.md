@@ -40,7 +40,32 @@ Between `tools` and `up`:
 | `windows\start.cmd stop` | Pause the cluster — state preserved. |
 | `windows\start.cmd clean` | Delete the minikube profile and kubectl context. |
 
-Everything else — getting the challenge images, the guardrails you'll run into, handy `kubectl`/`k9s` commands — is in the [main README](../README.md) and works the same on Windows.
+Everything else — the guardrails you'll run into, handy `kubectl`/`k9s` commands — is in the [main README](../README.md) and works the same on Windows.
+
+## Deploying challenges
+
+Identical to the [main README](../README.md#deploying-challenges) flow — kubectl accepts both `\` and `/` in file paths on Windows. From PowerShell in the repo root:
+
+```powershell
+kubectl --context=dc34 apply -f challenges\challenge-000.pod.yaml
+kubectl --context=dc34 -n challenge-000 get pods
+
+# poke around inside the pod
+kubectl --context=dc34 -n challenge-000 exec -it challenge-000 -- sh
+
+# or copy the artifacts to your machine
+kubectl --context=dc34 -n challenge-000 cp challenge-000:/forensics .\challenge-000-forensics
+```
+
+The challenge images are **private until the event**. Pull them through Docker Desktop and load them into the cluster (the pods use `imagePullPolicy: IfNotPresent`, so no in-cluster registry setup is needed):
+
+```powershell
+docker login ghcr.io -u <your-github-username>   # paste the token from the organizers
+docker pull ghcr.io/blueteamvillage/challenge-000:latest
+minikube -p dc34 image load ghcr.io/blueteamvillage/challenge-000:latest
+```
+
+See the main README for the challenge layout (standalone vs Converged Frontier beginner/pro scenarios) and the cleanup caveat about the shared `converged-frontier` namespace.
 
 ## What `up` does
 

@@ -1,3 +1,19 @@
+# Converged Frontier — shared namespace for all challenge-001 scenario pods.
+#
+# Bundled so `kubectl apply -f <this file>` is self-contained: kubectl creates
+# the Namespace before the Pod. Applying several scenario files is safe — the
+# Namespace is identical in each and `kubectl apply` is idempotent.
+# blueteamvillage.org/disable-quotas lifts the sandbox's default 5-pod
+# ResourceQuota so multiple scenario pods can coexist in this namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: converged-frontier
+  labels:
+    blueteamvillage.org/disable-quotas: "true"
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
 # Converged Frontier — s08 pro CHALLENGE (The Carrier Shadow)
 #
 # Contestant-facing evidence pod. Inspect the artifacts:

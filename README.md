@@ -1,4 +1,4 @@
-I'm# DC34 K8s Sandbox — Blue Team Village CTF
+# DC34 K8s Sandbox — Blue Team Village CTF
 
 Welcome, defender! This repository stands up the **local Kubernetes sandbox you'll compete in** during the **Blue Team Village CTF at DEF CON 34** (Project Obsidian). One command builds a self-contained cluster on your own laptop — complete with runtime telemetry and security guardrails — and the CTF challenges deploy straight into it during the event.
 

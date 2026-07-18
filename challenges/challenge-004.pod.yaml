@@ -1,0 +1,68 @@
+# Challenge 004 — dedicated namespace for the forensic artifact.
+#
+# Bundled so `kubectl apply -f challenge-004.pod.yaml` is self-contained: kubectl
+# creates the Namespace before the Pod. The forensic artifact is restricted-PSS
+# compliant, so the namespace enforces the restricted Pod Security Standard.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: challenge-004
+  labels:
+    challenge: "004"
+    scenario: libprocesshider-readdir-hook-rootkit
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+# Challenge 004 — post-detonation forensic artifact pod.
+#
+# Runs the published forensic-artifact image (ghcr.io/blueteamvillage/challenge-004)
+# so analysts can inspect the detonation evidence under /forensics:
+#   kubectl -n challenge-004 exec -it challenge-004 -- sh          # then: cat /forensics/tetragon-events.json
+#   kubectl -n challenge-004 cp challenge-004:/forensics ./challenge-004-forensics
+#
+# Unlike the live-malware sandbox pod (pod.yaml), this artifact is INERT — the live
+# sample was wiped and flattened out of the image, so it needs no privileges and no
+# Kyverno PolicyException. The securityContext below satisfies the cluster's
+# restricted Pod Security policies (drop ALL caps, no privilege escalation, run as
+# non-root, RuntimeDefault seccomp). A bare `kubectl run` is rejected by admission
+# precisely because it omits these — apply this manifest instead.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: challenge-004
+  namespace: challenge-004
+  labels:
+    app: challenge-004
+    challenge: "004"
+    scenario: libprocesshider-readdir-hook-rootkit
+spec:
+  # Static artifact; if it stops there is nothing to recover by restarting.
+  restartPolicy: Never
+  # The artifact has no business talking to the k8s API.
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: challenge-004
+      image: ghcr.io/blueteamvillage/challenge-004:latest
+      # IfNotPresent uses the locally built/loaded image; falls back to the
+      # (public) GHCR package on clusters where it isn't preloaded.
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: ["ALL"]
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi

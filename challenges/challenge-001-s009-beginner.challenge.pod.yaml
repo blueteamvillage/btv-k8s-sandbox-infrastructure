@@ -1,0 +1,55 @@
+# Converged Frontier — s09 beginner CHALLENGE (The Vendor Tunnel)
+#
+# Contestant-facing evidence pod. Inspect the artifacts:
+#   kubectl -n converged-frontier exec -it challenge-001-s009-beginner -- sh
+#   #  then: ls /challenge/ ; cat /challenge/README.md ; ls -R /challenge/evidence/
+#
+# Published package: ghcr.io/blueteamvillage/challenge-001-s009-beginner:latest
+# For local dc34 testing, build/build.sh tags the same ref so IfNotPresent uses it.
+# Inert, restricted-PSS compliant (no PolicyException needed).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: challenge-001-s009-beginner
+  namespace: converged-frontier
+  labels:
+    app: converged-frontier
+    scenario: s09
+    track: beginner
+    kind: challenge
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: challenge
+      image: ghcr.io/blueteamvillage/challenge-001-s009-beginner:latest
+      # IfNotPresent uses the image built into the dc34 node by build/build.sh.
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: SCENARIO_TITLE
+          value: "The Vendor Tunnel"
+        - name: SCENARIO_TRACK
+          value: beginner
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 50m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi

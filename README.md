@@ -67,24 +67,49 @@ kubectl --context dc34 get pods -A   # everything Running/Completed
 | `make clean` | `start.cmd clean` | Tear down everything (macOS: including the VM disk). Full reset. |
 | `make tools` | `start.cmd tools` | Just install/update the CLI tools (Homebrew / winget). |
 
-## Getting the challenges
+## Deploying challenges
 
-Challenges are distributed as container images from the Blue Team Village registry:
-
-```
-ghcr.io/blueteamvillage/challenge-<NNN>
-```
-
-Some challenges also ship in **`-beginner`** and **`-pro`** difficulty variants — pick the track that fits you.
-
-The images are **private until the event**. At the village you'll receive credentials to authenticate:
+Every challenge is a ready-to-apply manifest in [`challenges/`](challenges) paired with a container image from the Blue Team Village registry (`ghcr.io/blueteamvillage/challenge-<NNN>`). Each manifest is **self-contained** — one apply creates the challenge's namespace and its pod:
 
 ```sh
-docker login ghcr.io -u <your-github-username>
-# paste the token provided by the organizers when prompted
+kubectl --context dc34 apply -f challenges/challenge-000.pod.yaml
+kubectl --context dc34 -n challenge-000 get pods
 ```
 
-Each challenge comes with its own deployment instructions when it's released — build the sandbox ahead of time, and you'll be ready to pull and play the moment doors open.
+Then dig into the evidence:
+
+```sh
+# poke around inside the pod
+kubectl --context dc34 -n challenge-000 exec -it challenge-000 -- sh
+
+# or copy the artifacts to your machine
+kubectl --context dc34 -n challenge-000 cp challenge-000:/forensics ./challenge-000-forensics
+```
+
+Two kinds of challenges:
+
+- **Standalone** (`challenge-<NNN>.pod.yaml`) — each deploys into its own `challenge-<NNN>` namespace.
+- **Converged Frontier scenarios** (`challenge-001-s<NNN>-*.challenge.pod.yaml`) — ten scenarios, each in a **`-beginner`** and a **`-pro`** variant; pick the track that fits you. They all share the `converged-frontier` namespace and can run side by side.
+
+### Challenge images
+
+The images are **private until the event**. At the village you'll receive credentials; pull the image on your machine and load it into the cluster (the pods use `imagePullPolicy: IfNotPresent`, so the loaded image is used without any in-cluster registry setup):
+
+```sh
+docker login ghcr.io -u <your-github-username>   # paste the token from the organizers
+docker pull ghcr.io/blueteamvillage/challenge-000:latest
+minikube -p dc34 image load ghcr.io/blueteamvillage/challenge-000:latest
+```
+
+Build the sandbox ahead of time, and you'll be ready to pull and play the moment doors open.
+
+### Removing a challenge
+
+```sh
+kubectl --context dc34 -n challenge-000 delete pod challenge-000
+```
+
+`kubectl delete -f <file>` also works for standalone challenges (it removes that challenge's namespace too), but **avoid it for Converged Frontier files** — it deletes the shared `converged-frontier` namespace and with it every scenario pod you have running. Delete individual pods there instead.
 
 ## Guardrails you'll run into (they're features, not bugs)
 

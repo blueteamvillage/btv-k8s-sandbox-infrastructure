@@ -22,8 +22,7 @@ metadata:
 #   kubectl --context dc34 -n challenge-021 exec -it challenge-021 -- sh          # then: cat /forensics/tetragon-events.json
 #   kubectl --context dc34 -n challenge-021 cp challenge-021:/forensics ./challenge-021-forensics
 #
-# Unlike the live-malware sandbox pod (pod.yaml — distributed separately with the
-# live-malware track, not shipped in this repo), this artifact is INERT — the live
+# Unlike the live-malware sandbox pod (pod.yaml, not shipped in this repo), this artifact is INERT — the live
 # sample was wiped and flattened out of the image, so it needs no privileges and no
 # Kyverno PolicyException. The securityContext below satisfies the cluster's
 # restricted Pod Security policies (drop ALL caps, no privilege escalation, run as

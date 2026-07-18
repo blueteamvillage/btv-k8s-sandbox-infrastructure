@@ -17,11 +17,12 @@ metadata:
 # Converged Frontier — s01 beginner CHALLENGE (Cloud-to-OT Control Plane Compromise)
 #
 # Contestant-facing evidence pod. Inspect the artifacts:
-#   kubectl -n converged-frontier exec -it challenge-001-s001-beginner -- sh
+#   kubectl --context dc34 -n converged-frontier exec -it challenge-001-s001-beginner -- sh
 #   #  then: ls /challenge/ ; cat /challenge/README.md ; ls -R /challenge/evidence/
 #
 # Published package: ghcr.io/blueteamvillage/challenge-001-s001-beginner:latest
-# For local dc34 testing, build/build.sh tags the same ref so IfNotPresent uses it.
+# The package is PRIVATE until the CTF opens — see README "Pulling challenge
+# images" for how to authenticate and preload it into the dc34 node.
 # Inert, restricted-PSS compliant (no PolicyException needed).
 apiVersion: v1
 kind: Pod
@@ -45,7 +46,8 @@ spec:
   containers:
     - name: challenge
       image: ghcr.io/blueteamvillage/challenge-001-s001-beginner:latest
-      # IfNotPresent uses the image built into the dc34 node by build/build.sh.
+      # IfNotPresent prefers an image already loaded into the dc34 node;
+      # otherwise the kubelet pulls from GHCR (needs the package to be accessible).
       imagePullPolicy: IfNotPresent
       env:
         - name: SCENARIO_TITLE

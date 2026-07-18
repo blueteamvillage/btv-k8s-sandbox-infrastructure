@@ -1,0 +1,7 @@
+brew "minikube"
+brew "kubernetes-cli"
+brew "helm"
+brew "helmfile"
+brew "k9s"
+brew "colima"
+brew "docker"

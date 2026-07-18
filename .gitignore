@@ -1,0 +1,178 @@
+# =============================================================================
+# dc34-obsidian-seceng — Git ignore policy
+# =============================================================================
+# This repository holds infrastructure and security-engineering work. Keep
+# local machine clutter, editor noise, and anything that could contain secrets
+# or credentials out of version control. When you add new tools (e.g. a new
+# cloud CLI or language stack), extend the matching section below.
+#
+# Git ignore reference: https://git-scm.com/docs/gitignore
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Operating system artifacts (never commit these)
+# -----------------------------------------------------------------------------
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux / editors (common backup files)
+*~
+.fuse_hidden*
+
+# -----------------------------------------------------------------------------
+# Secrets, credentials, and environment files
+# -----------------------------------------------------------------------------
+# If something here is a false positive for a legitimate tracked file, prefer
+# renaming the tracked asset or using `git add -f` only after explicit review.
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+!.env*.example
+*.local
+
+# Keys and certificates (PEM, PKCS, SSH material in-repo)
+*.pem
+*.key
+*.p12
+*.pfx
+*.cer
+*.crt
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+*.ppk
+known_hosts
+authorized_keys
+.ssh/
+
+# Cloud and API credentials (often copied into a worktree by mistake)
+.aws/credentials
+.aws/config
+**/gcloud/application_default_credentials.json
+.azure/
+*.credentials.json
+*-credentials.json
+*-secret.json
+
+# Kubernetes / kubeconfig dumps
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+
+# Terraform variable files (commonly hold secrets; use *.tfvars.example)
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Ansible / Vault
+*.vault
+.vault_pass
+vault_pass.txt
+
+# Generic high-risk filenames (adjust if you add intentional fixtures)
+private_key.txt
+secrets.yaml
+secrets.yml
+
+# -----------------------------------------------------------------------------
+# Infrastructure as code — local state and caches
+# -----------------------------------------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# -----------------------------------------------------------------------------
+# Languages, package managers, and build output (add as stacks land here)
+# -----------------------------------------------------------------------------
+
+# Node / JavaScript
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Go
+bin/
+*.exe
+*.test
+
+# -----------------------------------------------------------------------------
+# Editors and IDEs
+# -----------------------------------------------------------------------------
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.swp
+*.swo
+.project
+.classpath
+.settings/
+
+# -----------------------------------------------------------------------------
+# Local tooling directory (never commit)
+# -----------------------------------------------------------------------------
+# Default location for editor-local session notes, scratch files, and similar.
+# Shared documentation belongs under docs/ (or other tracked paths you choose).
+.cursor/
+
+# Claude Code: keep shared instructions (CLAUDE.md, .claude/rules/, agents,
+# commands) in version control, but ignore per-user local settings.
+.claude/settings.local.json
+
+# -----------------------------------------------------------------------------
+# Misc tooling
+# -----------------------------------------------------------------------------
+.vercel
+.turbo
+*.log

@@ -1,0 +1,207 @@
+repositories:
+  - name: cilium
+    url: https://helm.cilium.io/
+  - name: kyverno
+    url: https://kyverno.github.io/kyverno/
+
+releases:
+  - name: tetragon
+    namespace: kube-system
+    kubeContext: dc34
+    chart: cilium/tetragon
+    version: 1.7.0
+    wait: true
+
+  - name: kyverno
+    namespace: kyverno
+    createNamespace: true
+    kubeContext: dc34
+    chart: kyverno/kyverno
+    version: 3.8.0
+    wait: true
+    values:
+      - admissionController:
+          container:
+            extraArgs:
+              enablePolicyException: "true"
+              exceptionNamespace: "kyverno"
+
+  - name: kyverno-policies
+    namespace: kyverno
+    kubeContext: dc34
+    chart: kyverno/kyverno-policies
+    version: 3.8.0
+    wait: true
+    needs:
+      - kyverno/kyverno
+    hooks:
+      - events: [presync]
+        command: bash
+        args:
+          - -c
+          - |
+            # Probe the actual mutate-policy webhook with a server-side dry-run.
+            # /health/readiness can return OK before the TLS webhook port is bound,
+            # so we test the exact code path the kyverno-policies install will use.
+            probe='apiVersion: kyverno.io/v1
+            kind: ClusterPolicy
+            metadata: {name: webhook-readiness-probe}
+            spec:
+              rules:
+                - name: probe
+                  match: {any: [{resources: {kinds: [Pod]}}]}
+                  validate: {message: probe, pattern: {spec: {}}}'
+            until echo "$probe" | kubectl --context=dc34 apply --dry-run=server -f - >/dev/null 2>&1; do
+              sleep 1
+            done
+    values:
+      - podSecurityStandard: restricted
+        validationFailureAction: Enforce
+        validationFailureActionOverrides:
+          all:
+            - action: Audit
+              namespaces:
+                - kyverno
+        customPolicies:
+          - apiVersion: kyverno.io/v1
+            kind: ClusterPolicy
+            metadata:
+              name: generate-default-network-policies
+              annotations:
+                policies.kyverno.io/title: Auto-generate default-deny NetworkPolicies
+                policies.kyverno.io/category: Network Security
+                policies.kyverno.io/description: >
+                  Every namespace receives a default-deny NetworkPolicy for ingress
+                  and egress unless explicitly opted out via labels:
+                    blueteamvillage.org/allow-inbound: "true"  → skip ingress deny
+                    blueteamvillage.org/allow-outbound: "true" → skip egress deny
+                  System namespaces (kube-system, kyverno) are excluded by name.
+            spec:
+              generateExisting: true
+              rules:
+                - name: generate-default-deny-ingress
+                  match:
+                    any:
+                      - resources:
+                          kinds: [Namespace]
+                  exclude:
+                    any:
+                      - resources:
+                          kinds: [Namespace]
+                          names: [kube-system, kyverno]
+                      - resources:
+                          kinds: [Namespace]
+                          selector:
+                            matchLabels:
+                              blueteamvillage.org/allow-inbound: "true"
+                  generate:
+                    synchronize: true
+                    apiVersion: networking.k8s.io/v1
+                    kind: NetworkPolicy
+                    name: default-deny-ingress
+                    namespace: "{{`{{request.object.metadata.name}}`}}"
+                    data:
+                      spec:
+                        podSelector: {}
+                        policyTypes: [Ingress]
+
+                - name: generate-default-deny-egress
+                  match:
+                    any:
+                      - resources:
+                          kinds: [Namespace]
+                  exclude:
+                    any:
+                      - resources:
+                          kinds: [Namespace]
+                          names: [kube-system, kyverno]
+                      - resources:
+                          kinds: [Namespace]
+                          selector:
+                            matchLabels:
+                              blueteamvillage.org/allow-outbound: "true"
+                  generate:
+                    synchronize: true
+                    apiVersion: networking.k8s.io/v1
+                    kind: NetworkPolicy
+                    name: default-deny-egress
+                    namespace: "{{`{{request.object.metadata.name}}`}}"
+                    data:
+                      spec:
+                        podSelector: {}
+                        policyTypes: [Egress]
+
+          - apiVersion: kyverno.io/v1
+            kind: ClusterPolicy
+            metadata:
+              name: generate-default-namespace-resources
+              annotations:
+                policies.kyverno.io/title: Auto-generate ResourceQuota and LimitRange
+                policies.kyverno.io/category: Resource Management
+                policies.kyverno.io/description: >
+                  Every namespace receives a ResourceQuota and LimitRange unless
+                  explicitly opted out via labels:
+                    blueteamvillage.org/disable-quotas: "true" → skip ResourceQuota
+                    blueteamvillage.org/disable-limits: "true" → skip LimitRange
+                  System namespaces (kube-system, kyverno) are excluded by name.
+            spec:
+              generateExisting: true
+              rules:
+                - name: generate-resourcequota
+                  match:
+                    any:
+                      - resources:
+                          kinds: [Namespace]
+                  exclude:
+                    any:
+                      - resources:
+                          kinds: [Namespace]
+                          names: [kube-system, kyverno]
+                      - resources:
+                          kinds: [Namespace]
+                          selector:
+                            matchLabels:
+                              blueteamvillage.org/disable-quotas: "true"
+                  generate:
+                    synchronize: true
+                    apiVersion: v1
+                    kind: ResourceQuota
+                    name: default-quota
+                    namespace: "{{`{{request.object.metadata.name}}`}}"
+                    data:
+                      spec:
+                        hard:
+                          pods: "5"
+                          requests.cpu: "2"
+                          requests.memory: 2Gi
+                          limits.cpu: "4"
+                          limits.memory: 4Gi
+
+                - name: generate-limitrange
+                  match:
+                    any:
+                      - resources:
+                          kinds: [Namespace]
+                  exclude:
+                    any:
+                      - resources:
+                          kinds: [Namespace]
+                          names: [kube-system, kyverno]
+                      - resources:
+                          kinds: [Namespace]
+                          selector:
+                            matchLabels:
+                              blueteamvillage.org/disable-limits: "true"
+                  generate:
+                    synchronize: true
+                    apiVersion: v1
+                    kind: LimitRange
+                    name: default-limits
+                    namespace: "{{`{{request.object.metadata.name}}`}}"
+                    data:
+                      spec:
+                        limits:
+                          - type: Container
+                            default: { cpu: 500m, memory: 512Mi }
+                            defaultRequest: { cpu: 100m, memory: 128Mi }
+                            max: { cpu: "2", memory: 2Gi }

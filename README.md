@@ -124,7 +124,7 @@ Namespaces can opt out of individual guardrails via labels — challenge manifes
 # Cluster access — the kubectl context is "dc34"
 kubectl --context dc34 get pods -A
 
-# Interactive TUI for the cluster
+# Interactive TUI for the cluster (https://k9scli.io)
 k9s --context dc34
 
 # Watch Tetragon runtime events (process execs, connections, ...)

@@ -41,7 +41,7 @@ cd btv-k8s-sandbox-infrastructure
 **macOS:**
 
 ```sh
-make up
+make tools & make up
 ```
 
 **Windows** (PowerShell or cmd — full guide in [`windows/README.md`](windows/README.md)):

@@ -1,10 +1,8 @@
-.PHONY: tools up mvp containers stop clean status
+.PHONY: tools up stop clean status load-challenge
 
 PROFILE := dc34
 export MINIKUBE_PROFILE := $(PROFILE)
 export DOCKER_CONTEXT := colima-$(PROFILE)
-
-SCENARIOS := mvp
 
 tools:
 	@command -v brew >/dev/null 2>&1 || { echo "Error: Homebrew not installed. Install from https://brew.sh"; exit 1; }
@@ -17,7 +15,7 @@ up: tools
 	@echo ""
 	@echo "When done with the competition:"
 	@echo "  make stop    pause the cluster (state preserved)"
-	@echo "  make clean   tear down everything (VM disk and all)"
+	@echo "  make clean   tear down the cluster and VM (disk and all)"
 
 stop:
 	minikube stop
@@ -34,3 +32,13 @@ clean:
 status:
 	colima status -p $(PROFILE)
 	minikube status
+
+# Pull a challenge image and load it into the dc34 node with the right Docker
+# context and minikube profile already set. Run `docker login ghcr.io` first
+# once the organizers hand out credentials. The pull is best-effort so an
+# image already present locally (or loaded another way) still gets loaded.
+# Usage: make load-challenge N=000   (or N=001-s001-beginner, N=001-s004-pro, ...)
+load-challenge:
+	@test -n "$(N)" || { echo "Usage: make load-challenge N=<NNN | 001-s<NNN>-beginner | 001-s<NNN>-pro>   e.g. N=000"; exit 1; }
+	-docker pull ghcr.io/blueteamvillage/challenge-$(N):latest
+	minikube image load ghcr.io/blueteamvillage/challenge-$(N):latest

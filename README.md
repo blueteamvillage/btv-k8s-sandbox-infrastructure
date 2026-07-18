@@ -93,10 +93,9 @@ Two kinds of challenges:
 
 ### Challenge images
 
-The images are **private until the event**. At the village you'll receive credentials; pull the image on your machine and load it into the cluster (the pods use `imagePullPolicy: IfNotPresent`, so the loaded image is used without any in-cluster registry setup):
+The images are **private until the event**. Pull the image on your machine and load it into the cluster (the pods use `imagePullPolicy: IfNotPresent`, so the loaded image is used without any in-cluster registry setup):
 
 ```sh
-docker login ghcr.io -u <your-github-username>   # paste the token from the organizers
 docker pull ghcr.io/blueteamvillage/challenge-000:latest
 minikube -p dc34 image load ghcr.io/blueteamvillage/challenge-000:latest
 ```

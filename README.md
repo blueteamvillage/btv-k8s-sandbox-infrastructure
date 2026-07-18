@@ -32,8 +32,8 @@ Why you care as a contestant:
 ## Quick start
 
 ```sh
-git clone https://github.com/blueteamvillage/dc34-k8s-sandbox-infrastructure.git
-cd dc34-k8s-sandbox-infrastructure
+git clone https://github.com/blueteamvillage/btv-k8s-sandbox-infrastructure.git
+cd btv-k8s-sandbox-infrastructure
 make up
 ```
 

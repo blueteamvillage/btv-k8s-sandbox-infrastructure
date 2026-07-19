@@ -20,10 +20,27 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true, Position = 0)]
+    [Parameter(Position = 0)]
     [ValidateSet('tools', 'up', 'verify', 'stop', 'clean', 'status')]
     [string]$Command
 )
+
+# Bare `windows\start.cmd` (no subcommand) should print usage, not sit at an
+# interactive parameter prompt.
+if (-not $Command) {
+    Write-Host 'Usage: windows\start.cmd <command>'
+    Write-Host ''
+    Write-Host 'Commands:'
+    Write-Host '  tools    Install CLI tools (Docker Desktop, minikube, kubectl, helm, helmfile, Git)'
+    Write-Host '  up       Start the dc34 cluster and deploy the sandbox stack'
+    Write-Host '  verify   Automated health check'
+    Write-Host '  status   Show cluster health'
+    Write-Host '  stop     Pause the cluster (state preserved)'
+    Write-Host '  clean    Delete the minikube profile and kubectl context'
+    Write-Host ''
+    Write-Host 'First-time setup: windows\start.cmd tools, then start Docker Desktop, open a new terminal, and run windows\start.cmd up'
+    exit 1
+}
 
 $ErrorActionPreference = 'Stop'
 
@@ -161,7 +178,7 @@ switch ($Command) {
         Install-Helmfile
         Write-Host ''
         Write-Host 'Optional: winget install -e --id Derailed.k9s'
-        Write-Host 'Alternative: scoop install helmfile'
+        Write-Host 'Alternative (only if you already use scoop): scoop install helmfile'
         Write-Host ''
         Write-Host 'Enable Docker Desktop WSL2 engine, reboot if prompted, then:'
         Write-Host '  windows\start.cmd up'

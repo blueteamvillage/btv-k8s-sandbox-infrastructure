@@ -19,10 +19,10 @@ metadata:
 #
 # Runs the published forensic-artifact image (ghcr.io/blueteamvillage/challenge-012)
 # so analysts can inspect the detonation evidence under /forensics:
-#   kubectl -n challenge-012 exec -it challenge-012 -- sh          # then: cat /forensics/tetragon-events.json
-#   kubectl -n challenge-012 cp challenge-012:/forensics ./challenge-012-forensics
+#   kubectl --context dc34 -n challenge-012 exec -it challenge-012 -- sh          # then: cat /forensics/tetragon-events.json
+#   kubectl --context dc34 -n challenge-012 cp challenge-012:/forensics ./challenge-012-forensics
 #
-# Unlike the live-malware sandbox pod (pod.yaml), this artifact is INERT — the live
+# Unlike the live-malware sandbox pod (pod.yaml, not shipped in this repo), this artifact is INERT — the live
 # sample was wiped and flattened out of the image, so it needs no privileges and no
 # Kyverno PolicyException. The securityContext below satisfies the cluster's
 # restricted Pod Security policies (drop ALL caps, no privilege escalation, run as
@@ -51,8 +51,9 @@ spec:
   containers:
     - name: challenge-012
       image: ghcr.io/blueteamvillage/challenge-012:latest
-      # IfNotPresent uses the locally built/loaded image; falls back to the
-      # (public) GHCR package on clusters where it isn't preloaded.
+      # IfNotPresent uses the locally loaded image; otherwise the kubelet pulls
+      # from GHCR. The package is PRIVATE until the CTF opens — see README
+      # "Pulling challenge images" for the login/pull/load steps.
       imagePullPolicy: IfNotPresent
       securityContext:
         runAsNonRoot: true

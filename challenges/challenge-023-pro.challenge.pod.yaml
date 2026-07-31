@@ -31,6 +31,8 @@ metadata:
 # well under the namespace's 5-pod quota).
 #
 # Published package: ghcr.io/blueteamvillage/challenge-023-pro:latest
+# The package is PRIVATE until the CTF opens — see README "Pulling challenge
+# images" for how to authenticate and preload it into the dc34 node.
 # Inert — nothing executes but sh/cat/grep over read-only files, so the pod needs no
 # privileges and no Kyverno PolicyException. The securityContext below satisfies the
 # cluster's restricted Pod Security policies; a bare `kubectl run` is rejected at
@@ -60,8 +62,8 @@ spec:
   containers:
     - name: challenge
       image: ghcr.io/blueteamvillage/challenge-023-pro:latest
-      # IfNotPresent uses the locally built/loaded image; falls back to the
-      # GHCR package on clusters where it isn't preloaded.
+      # IfNotPresent prefers an image already loaded into the dc34 node;
+      # otherwise the kubelet pulls from GHCR (needs the package to be accessible).
       imagePullPolicy: IfNotPresent
       env:
         - name: SCENARIO_TRACK

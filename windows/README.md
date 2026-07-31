@@ -40,7 +40,7 @@ Between `tools` and `up`:
 | `windows\start.cmd stop` | Pause the cluster — state preserved. |
 | `windows\start.cmd clean` | Delete the minikube profile and kubectl context. |
 
-Everything else — the guardrails you'll run into, handy `kubectl`/`k9s` commands — is in the [main README](../README.md) and works the same on Windows.
+Everything else — the guardrails you'll run into, handy `kubectl`/`k9s` commands — is in the [main README](../README.md) and works the same on Windows (k9s is optional here and not installed by `tools`: `winget install -e --id Derailed.k9s`).
 
 ## Deploying challenges
 
@@ -57,19 +57,13 @@ kubectl --context=dc34 -n challenge-000 exec -it challenge-000 -- sh
 kubectl --context=dc34 -n challenge-000 cp challenge-000:/forensics .\challenge-000-forensics
 ```
 
-The challenge images are **private until the event**. Pull them through Docker Desktop and load them into the cluster (the pods use `imagePullPolicy: IfNotPresent`, so no in-cluster registry setup is needed):
-
-```powershell
-docker login ghcr.io -u <your-github-username>   # paste the token from the organizers
-docker pull ghcr.io/blueteamvillage/challenge-000:latest
-minikube -p dc34 image load ghcr.io/blueteamvillage/challenge-000:latest
-```
+The challenge images are **private until the event** — follow [Pulling challenge images](../README.md#pulling-challenge-images) in the main README. The commands work as-is in any Windows shell (Docker Desktop's default context is already correct; the macOS `colima-dc34` context step doesn't apply), and the pods' `imagePullPolicy: IfNotPresent` picks up the loaded image with no in-cluster registry setup.
 
 See the main README for the challenge layout (standalone vs Converged Frontier beginner/pro scenarios) and the cleanup caveat about the shared `converged-frontier` namespace.
 
 ## What `up` does
 
-1. Asserts `docker`, `minikube`, `kubectl`, `helm`, `helmfile`, and Git Bash are installed, and Docker Desktop is running
+1. Asserts `docker`, `minikube`, `kubectl`, `helm`, and `helmfile` are installed, and Docker Desktop is running (bash is located later, at the `helmfile sync` step — Git Bash preferred, WSL bash as fallback with a warning)
 2. `minikube start -p dc34 --driver=docker --cpus=4 --memory=6144 --cni=cilium --addons=metrics-server`
 3. `helmfile sync --enable-live-output` — installs Tetragon, Kyverno, and the guardrail policies
 
@@ -85,7 +79,7 @@ winget install -e --id Kubernetes.minikube
 winget install -e --id Kubernetes.kubectl
 winget install -e --id Helm.Helm
 winget install -e --id Git.Git
-scoop install helmfile        # or download helmfile.exe from GitHub releases
+scoop install helmfile        # only if you already use scoop — otherwise download helmfile.exe from GitHub releases
 winget install -e --id Derailed.k9s   # optional
 
 minikube start -p dc34 --driver=docker --cpus=4 --memory=6144 --cni=cilium --addons=metrics-server
@@ -117,7 +111,7 @@ If you live entirely inside **WSL2 Ubuntu** (with Docker Desktop WSL integration
 | `bash: command not found` during `up` | Git for Windows missing | `winget install -e --id Git.Git`; reopen shell |
 | `cd: ... No such file or directory` from an unexpected distro | `bash` resolves to WSL, not Git Bash | Install Git for Windows; the script prefers `Git\bin\bash.exe`; re-run `up` |
 | helmfile presync hook waits forever | Kyverno webhook not ready yet | Wait and re-run `windows\start.cmd up`; check `kubectl --context=dc34 -n kyverno get pods` |
-| `helmfile: command not found` | Not on `PATH` | Open a new terminal, or `scoop install helmfile` |
+| `helmfile: command not found` | Not on `PATH` | Open a new terminal; if it was never installed, re-run `windows\start.cmd tools` (`up` also installs it automatically) |
 | Path errors in bash | Special characters in repo path | Clone to a simple path, e.g. `C:\Users\<you>\github\btv-k8s-sandbox-infrastructure` |
 
 ### General

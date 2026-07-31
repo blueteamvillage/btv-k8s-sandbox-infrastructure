@@ -76,18 +76,6 @@ kubectl --context dc34 apply -f challenges/challenge-000.pod.yaml
 kubectl --context dc34 -n challenge-000 get pods
 ```
 
-### Pulling challenge images
-
-Challenge images are **private on GHCR until the CTF opens**, so before the event a freshly applied challenge pod sits in `ImagePullBackOff` — that's expected, not a broken sandbox. At the village you'll get pull credentials; then pull the image and load it into the cluster:
-
-```sh
-docker login ghcr.io -u <your-github-username>   # paste the token from the organizers
-docker pull ghcr.io/blueteamvillage/challenge-000:latest
-minikube -p dc34 image load ghcr.io/blueteamvillage/challenge-000:latest
-```
-
-Manifests use `imagePullPolicy: IfNotPresent`, so a loaded image is picked up with no extra registry setup. On macOS, after the `docker login`, `make load-challenge N=000` does the pull + load with the right Docker context (`colima-dc34`) and minikube profile already set; in a plain shell run `docker context use colima-dc34` first (see [Troubleshooting](#troubleshooting)).
-
 Then dig into the evidence:
 
 ```sh
@@ -106,6 +94,29 @@ Three kinds of challenges:
 - **Tracked standalone** (`challenge-023-*.challenge.pod.yaml`) — one scenario offered in a **`-beginner`** and a **`-pro`** variant, both sharing the `challenge-023` namespace. The evidence is identical in each; the track is a delivery label only, so run whichever you prefer.
 
 Not everything the CTF site advertises ships as a manifest here — but everything that does is **inert**. The standalone and tracked-standalone `challenge-<NNN>` pods are the Container & Malware Forensics track's forensic snapshots (the site's **"Option A"**), and the Converged Frontier scenarios are pre-generated evidence bundles; nothing in [`challenges/`](challenges) detonates. The Container track's **live-malware ("Option B") variants** and the site's separate **Cloud Attack Forensics** track are *not* in this repo; those materials come through the event channels, not this repository.
+
+### Pulling challenge images
+
+Challenge images are **private on GHCR until the CTF opens**, so before the event a freshly applied challenge pod sits in `ImagePullBackOff` — that's expected, not a broken sandbox. At the village you'll get pull credentials; then pull the image and load it into the cluster:
+
+```sh
+docker login ghcr.io -u <your-github-username>   # paste the organizers' token at the prompt
+docker pull ghcr.io/blueteamvillage/challenge-000:latest
+minikube -p dc34 image load ghcr.io/blueteamvillage/challenge-000:latest
+```
+
+Paste the token at the interactive prompt rather than passing `-p <token>`, which would leave it in your shell history. The token only ever needs the `read:packages` scope. Docker keeps it base64-encoded — not encrypted — in `~/.docker/config.json`, so when the con is over, clear it: `docker logout ghcr.io`.
+
+Manifests use `imagePullPolicy: IfNotPresent`, so a loaded image is picked up with no extra registry setup. On macOS, after the `docker login`, `make load-challenge N=000` does the pull + load with the right Docker context (`colima-dc34`) and minikube profile already set; in a plain shell run `docker context use colima-dc34` first (see [Troubleshooting](#troubleshooting)).
+
+**To fetch every challenge image in one pass**, use [`scripts/pull-btv-images.sh`](scripts/pull-btv-images.sh) rather than a `docker pull` per challenge. It discovers every published package, pulls them in parallel, side-loads each into the `dc34` profile, and takes its token from the `gh` CLI over stdin so nothing lands in argv or on disk. It also handles the scope requirement that catches people out — listing an org's packages needs `read:packages` even when the images themselves are public. Full flag reference in [`scripts/README.md`](scripts/README.md).
+
+Because the manifests reference the mutable `:latest` tag and `IfNotPresent` never re-pulls, the first image you load keeps serving that challenge — a half-pulled or locally modified image won't correct itself, and the kubelet won't tell you. If a challenge's evidence looks wrong, check what you actually loaded, then replace it:
+
+```sh
+docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/blueteamvillage/challenge-000:latest
+minikube -p dc34 image rm ghcr.io/blueteamvillage/challenge-000:latest   # then pull and load again
+```
 
 ### Removing a challenge
 
@@ -166,6 +177,7 @@ kubectl --context dc34 get networkpolicy,resourcequota,limitrange -n <namespace>
 
 - `make stop` / `windows\start.cmd stop` — pause the sandbox and free CPU/RAM; your cluster state survives.
 - `make clean` / `windows\start.cmd clean` — delete the cluster (and on macOS the VM and its disk) entirely.
+- `docker logout ghcr.io` — drop the organizers' pull token, which Docker otherwise leaves base64-encoded in `~/.docker/config.json`.
 
 ## Getting help
 

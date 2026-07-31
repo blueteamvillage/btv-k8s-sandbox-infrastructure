@@ -33,12 +33,26 @@ status:
 	colima status -p $(PROFILE)
 	minikube status
 
-# Pull a challenge image and load it into the dc34 node with the right Docker
+CHALLENGE_IMAGE = ghcr.io/blueteamvillage/challenge-$(N):latest
+
+# Pull one challenge image and load it into the dc34 node with the right Docker
 # context and minikube profile already set. Run `docker login ghcr.io` first
-# once the organizers hand out credentials. The pull is best-effort so an
-# image already present locally (or loaded another way) still gets loaded.
-# Usage: make load-challenge N=000   (or N=001-s001-beginner, N=001-s004-pro, ...)
+# once the organizers hand out credentials. The pull is best-effort so an image
+# already present locally (or loaded another way) still gets loaded — but the
+# load only runs if the image is really there, so a pull that 401s tells you to
+# log in instead of failing later on a reference minikube can't find.
+# For every challenge image in one pass, use scripts/pull-btv-images.sh.
+# Usage: make load-challenge N=000   (or N=023-pro, N=001-s001-beginner, ...)
 load-challenge:
-	@test -n "$(N)" || { echo "Usage: make load-challenge N=<NNN | 001-s<NNN>-beginner | 001-s<NNN>-pro>   e.g. N=000"; exit 1; }
-	-docker pull ghcr.io/blueteamvillage/challenge-$(N):latest
-	minikube image load ghcr.io/blueteamvillage/challenge-$(N):latest
+	@test -n "$(N)" || { echo "Usage: make load-challenge N=<NNN | NNN-beginner | NNN-pro | 001-s<NNN>-beginner | 001-s<NNN>-pro>   e.g. N=000"; exit 1; }
+	@docker info >/dev/null 2>&1 || { echo "Error: the Docker daemon isn't reachable on context $(DOCKER_CONTEXT). Run 'make up' (or start colima) first."; exit 1; }
+	-docker pull $(CHALLENGE_IMAGE)
+	@docker image inspect $(CHALLENGE_IMAGE) >/dev/null 2>&1 || { \
+		echo ""; \
+		echo "Error: $(CHALLENGE_IMAGE) isn't in the local Docker cache, so there's nothing to load."; \
+		echo "Challenge images are private until the CTF opens — authenticate first:"; \
+		echo "  docker login ghcr.io -u <your-github-username>"; \
+		echo "then re-run: make load-challenge N=$(N)"; \
+		exit 1; \
+	}
+	minikube image load $(CHALLENGE_IMAGE)

@@ -1,0 +1,88 @@
+# Challenge 023 — shared namespace for both LUNAR SPIDER track pods.
+#
+# Bundled so `kubectl apply -f <this file>` is self-contained: kubectl creates the
+# Namespace before the Pod. Applying the beginner and pro files together is safe —
+# the Namespace is identical in each and `kubectl apply` is idempotent.
+#
+# Heads up: `kubectl delete -f <this file>` removes the namespace and therefore BOTH
+# track pods. To drop just one, delete the pod:
+#   kubectl --context dc34 -n challenge-023 delete pod challenge-023-pro
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: challenge-023
+  labels:
+    challenge: "023"
+    scenario: lunar-spider-scenario
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+---
+# Challenge 023 — LUNAR SPIDER pro CHALLENGE (Northbridge Logistics intrusion).
+#
+# Contestant-facing evidence pod for the "Ghost in the Assistant" investigation:
+# 24 auto-scored flags plus a manually judged master challenge, worked entirely from
+# static identity, endpoint, network, proxy, packet-summary, and SecAssist artifacts.
+#
+#   kubectl --context dc34 -n challenge-023 exec -it challenge-023-pro -- sh
+#   #  then: cat /challenge/CONTESTANT-GUIDE.md ; find /challenge/evidence -type f | sort
+#
+# Beginner and pro carry identical evidence, questions, hints, and points — the track
+# is a delivery label only. Pick one; running both side by side is fine (2 pods is
+# well under the namespace's 5-pod quota).
+#
+# Published package: ghcr.io/blueteamvillage/challenge-023-pro:latest
+# Inert — nothing executes but sh/cat/grep over read-only files, so the pod needs no
+# privileges and no Kyverno PolicyException. The securityContext below satisfies the
+# cluster's restricted Pod Security policies; a bare `kubectl run` is rejected at
+# admission precisely because it omits these.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: challenge-023-pro
+  namespace: challenge-023
+  labels:
+    app: challenge-023
+    challenge: "023"
+    scenario: lunar-spider-scenario
+    track: pro
+    kind: challenge
+spec:
+  # Static evidence; if it stops there is nothing to recover by restarting.
+  restartPolicy: Never
+  # The evidence pod has no business talking to the k8s API.
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: challenge
+      image: ghcr.io/blueteamvillage/challenge-023-pro:latest
+      # IfNotPresent uses the locally built/loaded image; falls back to the
+      # GHCR package on clusters where it isn't preloaded.
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: SCENARIO_TRACK
+          value: pro
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        capabilities:
+          drop:
+            - ALL
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+          ephemeral-storage: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+          ephemeral-storage: 128Mi

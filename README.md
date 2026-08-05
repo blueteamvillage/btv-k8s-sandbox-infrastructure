@@ -23,7 +23,7 @@ Why you care as a contestant:
 
 ## Requirements
 
-All platforms: **~4 CPU cores and 8 GB RAM free** for the VM, ~20 GB of disk, and **a GitHub account** for pulling challenge images during the event (see [Pulling challenge images](#pulling-challenge-images)).
+All platforms: **~4 CPU cores and 8 GB RAM free** for the VM and ~20 GB of disk. Pulling challenge images needs no account — they go public when the village opens (see [Pulling challenge images](#pulling-challenge-images)). A GitHub login is only needed if you use the bulk pull script, which lists the org's packages through the API.
 
 - **macOS** — [Homebrew](https://brew.sh); the `make` workflow installs everything else (see [`Brewfile`](Brewfile): minikube, kubectl, helm, helmfile, k9s, colima, docker CLI).
 - **Windows 10/11** — winget (App Installer, preinstalled on modern Windows); `windows\start.cmd tools` installs everything else, **including Docker Desktop**. Enable Docker Desktop's WSL2 engine and start it before running `up`. See [`windows/README.md`](windows/README.md).
@@ -97,17 +97,18 @@ Not everything the CTF site advertises ships as a manifest here — but everythi
 
 ### Pulling challenge images
 
-Challenge images are **private on GHCR until the CTF opens**, so before the event a freshly applied challenge pod sits in `ImagePullBackOff` — that's expected, not a broken sandbox. At the village you'll get pull credentials; then pull the image and load it into the cluster:
+Challenge images are **private on GHCR until the village opens on Friday, August 7, 2026**, then flip public for the rest of the con. Before that a freshly applied challenge pod sits in `ImagePullBackOff` and a `docker pull` fails on permissions — that's expected, not a broken sandbox. Build and test the cluster anyway; the images are the only piece you can't stage ahead of time.
+
+There are **no credentials at any point** — no `docker login`, nothing to collect at the village. Once the packages are public:
 
 ```sh
-docker login ghcr.io -u <your-github-username>   # paste the organizers' token at the prompt
 docker pull ghcr.io/blueteamvillage/challenge-000:latest
 minikube -p dc34 image load ghcr.io/blueteamvillage/challenge-000:latest
 ```
 
-Paste the token at the interactive prompt rather than passing `-p <token>`, which would leave it in your shell history. The token only ever needs the `read:packages` scope. Docker keeps it base64-encoded — not encrypted — in `~/.docker/config.json`, so when the con is over, clear it: `docker logout ghcr.io`.
+Manifests use `imagePullPolicy: IfNotPresent`, so a loaded image is picked up with no extra registry setup — and applying a manifest will pull the image on its own if you haven't side-loaded it. On macOS, `make load-challenge N=000` does the pull + load with the right Docker context (`colima-dc34`) and minikube profile already set; in a plain shell run `docker context use colima-dc34` first (see [Troubleshooting](#troubleshooting)).
 
-Manifests use `imagePullPolicy: IfNotPresent`, so a loaded image is picked up with no extra registry setup. On macOS, after the `docker login`, `make load-challenge N=000` does the pull + load with the right Docker context (`colima-dc34`) and minikube profile already set; in a plain shell run `docker context use colima-dc34` first (see [Troubleshooting](#troubleshooting)).
+Everyone in the village pulls over the same Wi-Fi at once, so fetch the challenge you're actually starting on rather than the whole catalogue. Layers are cached after the first pull.
 
 **To fetch every challenge image in one pass**, use [`scripts/pull-btv-images.sh`](scripts/pull-btv-images.sh) rather than a `docker pull` per challenge. It discovers every published package, pulls them in parallel, side-loads each into the `dc34` profile, and takes its token from the `gh` CLI over stdin so nothing lands in argv or on disk. It also handles the scope requirement that catches people out — listing an org's packages needs `read:packages` even when the images themselves are public. Full flag reference in [`scripts/README.md`](scripts/README.md).
 

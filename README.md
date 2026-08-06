@@ -86,14 +86,15 @@ kubectl --context dc34 -n challenge-000 exec -it challenge-000 -- sh
 kubectl --context dc34 -n challenge-000 cp challenge-000:/forensics ./challenge-000-forensics
 ```
 
-Three kinds of challenges:
+Four kinds of challenges:
 
 - **Standalone** (`challenge-<NNN>.pod.yaml`) — each deploys into its own `challenge-<NNN>` namespace. Numbering isn't contiguous (there is no `challenge-014`) — a gap doesn't mean your clone is incomplete.
 - **Converged Frontier scenarios** (`challenge-001-s<NNN>-*.challenge.pod.yaml`) — ten scenarios, each in a **`-beginner`** and a **`-pro`** variant; pick the track that fits you. They all share the `converged-frontier` namespace and can run side by side.
   - Zero-padding differs on purpose: file/pod/image names use `s001`–`s010`, while the pod label and the CTF site use `s01`–`s10`. Site scenario S01 is `challenge-001-s001-*`, selectable with `-l scenario=s01`.
 - **Tracked standalone** (`challenge-023-*.challenge.pod.yaml`) — one scenario offered in a **`-beginner`** and a **`-pro`** variant, both sharing the `challenge-023` namespace. The evidence is identical in each; the track is a delivery label only, so run whichever you prefer.
+- **Cloud Attack Forensics** (`challenge-024.pod.yaml`) — an AWS log investigation contributed by the DEF CON Cloud Village. No malware of any kind: you work a sanitized CloudTrail corpus with `jq`. Evidence is read-only at `/forensics`, and `/work` is the writable scratch space. The image is multi-arch, so it runs natively on Apple Silicon.
 
-Not everything the CTF site advertises ships as a manifest here — but everything that does is **inert**. The standalone and tracked-standalone `challenge-<NNN>` pods are the Container & Malware Forensics track's forensic snapshots (the site's **"Option A"**), and the Converged Frontier scenarios are pre-generated evidence bundles; nothing in [`challenges/`](challenges) detonates. The Container track's **live-malware ("Option B") variants** and the site's separate **Cloud Attack Forensics** track are *not* in this repo; those materials come through the event channels, not this repository.
+Not everything the CTF site advertises ships as a manifest here — but everything that does is **inert**. The standalone and tracked-standalone `challenge-<NNN>` pods are the Container & Malware Forensics track's forensic snapshots (the site's **"Option A"**), the Converged Frontier scenarios are pre-generated evidence bundles, and `challenge-024` is a static cloud audit trail; nothing in [`challenges/`](challenges) detonates. The Container track's **live-malware ("Option B") variants** are *not* in this repo; those materials come through the event channels, not this repository.
 
 ### Pulling challenge images
 

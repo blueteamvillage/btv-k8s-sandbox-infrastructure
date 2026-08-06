@@ -4,10 +4,15 @@
 # optionally side-load each image into a local minikube profile so the cluster
 # never has to reach the network during the con.
 #
-# Works whether the packages are public or private — private ones just need a
-# token carrying the read:packages scope. The token is read from the gh CLI (or
-# $GHCR_TOKEN) and piped to `docker login --password-stdin`; it is never echoed,
-# never passed as an argv flag, and never written to disk by this script.
+# With a token (gh CLI or $GHCR_TOKEN, read:packages scope): discovers every
+# package via the GitHub API and logs in to ghcr.io — works for private or
+# public images. The token is piped to `docker login --password-stdin`; it is
+# never echoed, never passed as an argv flag, and never written to disk.
+#
+# Without a token: falls back to public mode — discovers images from the
+# challenge manifests in this repo and pulls anonymously. Enough once the
+# packages are public (no GitHub account needed). --all-tags still needs a
+# token, because tag listing goes through the packages API.
 #
 #   ./pull-btv-images.sh --dry-run
 #   ./pull-btv-images.sh --profile dc34
@@ -25,12 +30,15 @@ FILTER=""
 DRY_RUN=0
 JOBS=3
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CHALLENGES_DIR="${CHALLENGES_DIR:-$SCRIPT_DIR/../challenges}"
+
 die()  { printf '\033[31merror:\033[0m %s\n' "$*" >&2; exit 1; }
 info() { printf '\033[36m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[33mwarn:\033[0m %s\n' "$*" >&2; }
 
 usage() {
-  sed -n '3,15p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
 
 Options:
@@ -38,11 +46,14 @@ Options:
   -p, --profile NAME   minikube profile to side-load into (default: dc34)
       --no-load        pull only; skip the minikube side-load step
   -t, --tag TAG        tag to pull for each package (default: latest)
-  -a, --all-tags       pull every tag of every package, not just one
+  -a, --all-tags       pull every tag of every package, not just one (needs a token)
   -f, --filter REGEX   only packages whose name matches this ERE
   -j, --jobs N         parallel pulls (default: 3)
   -n, --dry-run        list what would be pulled, then stop
   -h, --help           show this help
+
+Without a token the script reads image names from challenges/*.yaml and pulls
+anonymously (public packages only). Override the manifest dir with CHALLENGES_DIR.
 EOF
 }
 
@@ -62,43 +73,74 @@ while [ $# -gt 0 ]; do
 done
 
 # ---------------------------------------------------------------- preflight --
-for bin in gh docker jq; do
-  command -v "$bin" >/dev/null 2>&1 || die "$bin is required but not installed"
-done
+command -v docker >/dev/null 2>&1 || die "docker is required but not installed"
 docker info >/dev/null 2>&1 \
   || die "the Docker daemon isn't reachable — start Docker Desktop / colima first"
 
 # Prefer an explicit token, else borrow the gh CLI's. Held in a variable only:
 # never printed, never placed in argv, never written to disk.
-TOKEN="${GHCR_TOKEN:-$(gh auth token 2>/dev/null || true)}"
-[ -n "$TOKEN" ] || die "no GitHub token available — run 'gh auth login', or export GHCR_TOKEN"
+TOKEN="${GHCR_TOKEN:-}"
+if [ -z "$TOKEN" ] && command -v gh >/dev/null 2>&1; then
+  TOKEN="$(gh auth token 2>/dev/null || true)"
+fi
 
-GH_USER="$(gh api user --jq .login 2>/dev/null || true)"
-[ -n "$GH_USER" ] || die "couldn't resolve your GitHub username via 'gh api user'"
+PUBLIC_MODE=0
+if [ -z "$TOKEN" ]; then
+  PUBLIC_MODE=1
+  warn "no GitHub token — public mode: discovering from manifests, pulling anonymously"
+  warn "for private packages (or --all-tags), run 'gh auth login' or export GHCR_TOKEN"
+else
+  for bin in gh jq; do
+    command -v "$bin" >/dev/null 2>&1 || die "$bin is required but not installed"
+  done
 
-# The packages API needs read:packages. Probe it up front so a missing scope is
-# one clear message instead of an opaque 403 halfway through the run.
-if ! probe="$(gh api "/orgs/$ORG/packages?package_type=container&per_page=1" 2>&1)"; then
-  if printf '%s' "$probe" | grep -qi 'read:packages'; then
-    die "your gh token lacks the read:packages scope. Fix it with:
+  GH_USER="$(gh api user --jq .login 2>/dev/null || true)"
+  [ -n "$GH_USER" ] || die "couldn't resolve your GitHub username via 'gh api user'"
+
+  # The packages API needs read:packages. Probe it up front so a missing scope is
+  # one clear message instead of an opaque 403 halfway through the run.
+  if ! probe="$(gh api "/orgs/$ORG/packages?package_type=container&per_page=1" 2>&1)"; then
+    if printf '%s' "$probe" | grep -qi 'read:packages'; then
+      die "your gh token lacks the read:packages scope. Fix it with:
 
     gh auth refresh -h github.com -s read:packages
 
   then re-run this script. (Or export GHCR_TOKEN=<classic PAT with read:packages>.)"
-  fi
-  die "couldn't list packages for org '$ORG':
+    fi
+    die "couldn't list packages for org '$ORG':
 $probe"
+  fi
 fi
 
 # --------------------------------------------------------------- discovery --
-info "listing container packages in '$ORG'"
 PACKAGES=()
-while IFS= read -r line; do
-  [ -n "$line" ] && PACKAGES+=("$line")
-done < <(gh api --paginate "/orgs/$ORG/packages?package_type=container&per_page=100" \
-           --jq '.[].name' | sort -u)
 
-[ ${#PACKAGES[@]} -gt 0 ] || die "no container packages found in org '$ORG'"
+if [ "$PUBLIC_MODE" -eq 1 ]; then
+  [ "$ALL_TAGS" -eq 0 ] || die "--all-tags needs a GitHub token (packages API). Run 'gh auth login' or export GHCR_TOKEN, or drop --all-tags."
+
+  [ -d "$CHALLENGES_DIR" ] \
+    || die "challenges directory not found at '$CHALLENGES_DIR' (set CHALLENGES_DIR, or run from this repo)"
+
+  info "listing images from manifests in '$CHALLENGES_DIR'"
+  # image: ghcr.io/<org>/<name>:<tag>  — keep the package name only
+  while IFS= read -r line; do
+    [ -n "$line" ] && PACKAGES+=("$line")
+  done < <(grep -hE '^[[:space:]]*image:[[:space:]]*ghcr\.io/'"$ORG"'/' \
+             "$CHALLENGES_DIR"/*.yaml 2>/dev/null \
+           | sed -E 's|^[[:space:]]*image:[[:space:]]*ghcr\.io/'"$ORG"'/||; s|[:@].*||' \
+           | sort -u)
+
+  [ ${#PACKAGES[@]} -gt 0 ] \
+    || die "no ghcr.io/$ORG/ images found in $CHALLENGES_DIR/*.yaml"
+else
+  info "listing container packages in '$ORG'"
+  while IFS= read -r line; do
+    [ -n "$line" ] && PACKAGES+=("$line")
+  done < <(gh api --paginate "/orgs/$ORG/packages?package_type=container&per_page=100" \
+             --jq '.[].name' | sort -u)
+
+  [ ${#PACKAGES[@]} -gt 0 ] || die "no container packages found in org '$ORG'"
+fi
 
 if [ -n "$FILTER" ]; then
   FILTERED=()
@@ -144,9 +186,13 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 # ------------------------------------------------------------------- pull --
-info "authenticating to ghcr.io as $GH_USER"
-printf '%s' "$TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin >/dev/null \
-  || die "docker login to ghcr.io failed — token may lack read:packages"
+if [ "$PUBLIC_MODE" -eq 1 ]; then
+  info "pulling anonymously from ghcr.io (public packages only)"
+else
+  info "authenticating to ghcr.io as $GH_USER"
+  printf '%s' "$TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin >/dev/null \
+    || die "docker login to ghcr.io failed — token may lack read:packages"
+fi
 
 info "pulling with $JOBS parallel job(s)"
 printf '%s\n' "${REFS[@]}" \

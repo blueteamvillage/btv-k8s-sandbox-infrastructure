@@ -169,7 +169,8 @@ switch ($Command) {
             'Kubernetes.kubectl',
             'Helm.Helm',
             'Git.Git',
-            'jqlang.jq'
+            'jqlang.jq',
+            'GitHub.cli'
         )
         foreach ($id in $packages) {
             Write-Host "==> winget install --id $id -e --accept-package-agreements --accept-source-agreements"

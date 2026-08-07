@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: challenge-000-live
+  namespace: challenge-000-live
+  labels:
+    app: challenge-000-live
+    challenge: "000"
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  securityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: sandbox
+      image: ghcr.io/blueteamvillage/dc34-obsidian-seceng:challenge-000-live-latest
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SAMPLE_URL
+          valueFrom:
+            secretKeyRef:
+              name: challenge-000-live-fetch
+              key: SAMPLE_URL
+        - name: EXPECTED_SHA256
+          valueFrom:
+            secretKeyRef:
+              name: challenge-000-live-fetch
+              key: EXPECTED_SHA256
+      securityContext:
+        allowPrivilegeEscalation: true
+        capabilities:
+          add: [ALL]
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi

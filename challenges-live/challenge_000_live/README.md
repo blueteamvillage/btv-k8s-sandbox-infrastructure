@@ -1,0 +1,50 @@
+# challenge_000_live
+
+Opt-in **live** sandbox for challenge 000. Village ships an inert image (tooling + entrypoint). Sample bytes are fetched at pod start from a third-party URL (Secret), not from this repo or the image layers.
+
+The forensic / inert sibling remains [`challenges/challenge-000.pod.yaml`](../../challenges/challenge-000.pod.yaml).
+
+Kubernetes object names use DNS labels: `challenge-000-live`.
+
+## Launch
+
+Requires the local `dc34` cluster (`make up` from the repo root).
+
+```bash
+cd challenges-live/challenge_000_live
+make challenge_000_live
+```
+
+```bash
+kubectl --context=dc34 -n challenge-000-live logs -f challenge-000-live
+kubectl --context=dc34 -n challenge-000-live exec -it challenge-000-live -- /bin/bash
+```
+
+Tear down:
+
+```bash
+make challenge_000_live-delete
+```
+
+## Hard gates
+
+1. **Makefile:** `PROFILE` locked to `dc34`; requires reachable `kubectl --context=dc34`.
+2. **Entrypoint:** requires `KUBERNETES_SERVICE_HOST` and `POD_NAMESPACE=challenge-000-live`. `docker run` exits before fetch/exec.
+
+## Network
+
+Namespace sets `blueteamvillage.org/allow-outbound: "true"` so Kyverno skips the empty `default-deny-egress` (empty deny blocks Cilium FQDN allows). Ingress default-deny still applies.
+
+Pod-scoped CiliumNetworkPolicy `allow-sample-download`: L7 DNS via kube-dns plus HTTPS to the fetch hosts only. Other egress stays denied.
+
+## Flow
+
+1. Acquire payload via `SAMPLE_URL` (Secret; curl `-K` so URL is not in argv)
+2. Verify SHA256 (silent on success)
+3. `timeout 300s stdbuf -oL` exec (implant sleeps 135–224s before re-exec; a 30s harness kills it mid-sleep)
+4. Wipe `/samples`
+5. Park on `tail -f /dev/null`
+
+**Pod logs are opaque:** only `stage: acquire|verify|execute|complete|sanitize|park`. No URL, hash, or family name on stdout.
+
+During the ~5m execute window, exec in and watch `/dev/shm` / `ps` for the resident copy.

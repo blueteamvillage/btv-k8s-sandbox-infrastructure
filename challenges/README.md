@@ -2,7 +2,7 @@
 
 Every file here is a ready-to-apply Kubernetes manifest for one CTF challenge. Each one is **self-contained** — a single `apply` creates the challenge's namespace *and* its pod, so there's no setup order to get right.
 
-**Everything in this directory is inert.** These pods carry pre-collected forensic evidence — logs, Tetragon event captures, artifact dumps — and nothing in them detonates. They run unprivileged, as a non-root user, with all capabilities dropped, which is why they pass the sandbox's restricted Pod Security enforcement without any exception. The live-malware **"Option B"** variants and the **Cloud Attack Forensics** track that the CTF site advertises are not in this repo; those come through the event channels.
+**Everything in this directory is inert.** These pods carry pre-collected forensic evidence — logs, Tetragon event captures, artifact dumps, cloud audit trails — and nothing in them detonates. They run unprivileged, as a non-root user, with all capabilities dropped, which is why they pass the sandbox's restricted Pod Security enforcement without any exception. The live-malware **"Option B"** variants are opt-in and live in [`../challenges-live-malware/`](../challenges-live-malware) instead; nothing here fetches or executes a sample.
 
 New here? Start with the [main README](../README.md) to get the `dc34` cluster running, then come back.
 
@@ -33,8 +33,9 @@ The path differs by family, so `ls /` first if you're not sure what you're in.
 | Standalone (`challenge-<NNN>.pod.yaml`) | `/forensics` | `cat /forensics/tetragon-events.json` |
 | Converged Frontier (`challenge-001-s<NNN>-*`) | `/challenge` | `cat /challenge/README.md`, then `ls -R /challenge/evidence/` |
 | Tracked standalone (`challenge-023-*`) | `/challenge` | `cat /challenge/CONTESTANT-GUIDE.md`, then `find /challenge/evidence -type f \| sort` |
+| Cloud Attack Forensics (`challenge-024.pod.yaml`) | `/forensics` | `cat /forensics/README.md`, then `sha256sum -c /forensics/checksums.sha256` |
 
-## The three families
+## The four families
 
 ### Standalone — Container & Malware Forensics
 
@@ -103,6 +104,72 @@ kubectl --context dc34 -n converged-frontier get pods -l track=pro
 | `023` | `lunar-spider-scenario` ("Ghost in the Assistant") | `challenge-023-{beginner,pro}.challenge.pod.yaml` |
 
 Both variants share the `challenge-023` namespace and carry **identical** evidence, questions, hints, and points — the track is a delivery label only. Run either; running both is fine.
+
+### Cloud Attack Forensics
+
+No malware at all in this one — it's an AWS log investigation, contributed by the **DEF CON Cloud Village**.
+
+| Challenge | Scenario | File |
+|---|---|---|
+| `024` | `groundlink-intrusion` ("GroundLink Intrusion: Ten Techniques") | `challenge-024.pod.yaml` |
+
+One gzipped native CloudTrail corpus of 211 records — 10 form the incident chain, 201 are routine or decoy — and you reconstruct the intrusion with `jq` across ten objectives. Evidence is at `/forensics`, same as the standalone family:
+
+```sh
+kubectl --context dc34 apply -f challenges/challenge-024.pod.yaml
+kubectl --context dc34 -n challenge-024 exec -it challenge-024 -- sh
+# then:
+cd /forensics && sha256sum -c checksums.sha256 && cat README.md
+```
+
+Two things differ from the other challenges:
+
+- **`/forensics` is read-only and `/work` is where you write.** `/work` is an `emptyDir` and also `$HOME`, so shell history and `jq` output land there. It's wiped when the pod goes away — `kubectl cp` anything you want to keep.
+- **The published package is multi-arch** (`linux/amd64` + `linux/arm64`), so pulling it from GHCR gets you your node's native architecture rather than an emulated one. Note this applies to a *pull*: an image side-loaded from a local build is whatever platform that build targeted, and the default is `amd64`, which runs under QEMU on an arm64 node exactly like the malware images. `ps -o args` inside the pod will show a `qemu-x86_64` interpreter if you're emulated. Nothing about the challenge depends on this either way — it's `jq` over a 33 KB file.
+
+There's also an optional offline browser aid at `/forensics/workbench`. It's a convenience, not the intended path — the CLI and `jq` workflow is canonical, and the workbench grades nothing and reveals nothing.
+
+It takes **two steps**, and they're easy to half-do. Start the web server *inside* the pod first:
+
+```sh
+kubectl --context dc34 -n challenge-024 exec challenge-024 -- \
+  sh -c 'httpd -f -p 8080 -h /forensics/workbench >/dev/null 2>&1 &'
+```
+
+Confirm something is actually listening before you forward — this one line saves a lot of confusion:
+
+```sh
+kubectl --context dc34 -n challenge-024 exec challenge-024 -- netstat -ltn | grep 8080
+```
+
+Then forward it and open <http://127.0.0.1:8080/>:
+
+```sh
+kubectl --context dc34 -n challenge-024 port-forward pod/challenge-024 8080:8080
+```
+
+`port-forward` proxies through the API server rather than the pod network, so the namespace's default-deny egress policy doesn't block it.
+
+### "port-forward keeps breaking"
+
+If you see this — port-forward announces itself, then dies the moment you load the page:
+
+```text
+Forwarding from 127.0.0.1:8080 -> 8080
+Handling connection for 8080
+an error occurred forwarding 8080 -> 8080: ... socat[...] E connect(5, AF=2 127.0.0.1:8080, 16): Connection refused
+error: lost connection to pod
+```
+
+…then `port-forward` is fine and **nothing is listening on 8080 inside the pod.** It is relaying a connection-refused from the container. `curl` reports the same thing as `curl: (52) Empty reply from server`.
+
+Almost always one of:
+
+- **`httpd` was never started.** Run the first command above.
+- **The pod was recreated.** `httpd` is started by hand and does not come back on its own; a `delete pod` / re-apply cycle leaves you with no listener. Start it again.
+- **`httpd` was started but died.** Check with `pgrep -a httpd` inside the pod.
+
+Deliberately *not* the cause, so don't go hunting there: the default-deny NetworkPolicy (port-forward doesn't traverse the pod network), and the read-only root filesystem (`httpd` serves `/forensics` read-only and writes nothing).
 
 ## Cleaning up
 

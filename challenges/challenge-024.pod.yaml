@@ -1,0 +1,112 @@
+# Challenge 024 — dedicated namespace for the GroundLink evidence pod.
+#
+# Bundled so `kubectl apply -f challenge-024.pod.yaml` is self-contained: kubectl
+# creates the Namespace before the Pod. The evidence pod is restricted-PSS
+# compliant, so the namespace enforces the restricted Pod Security Standard.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: challenge-024
+  labels:
+    challenge: "024"
+    scenario: groundlink-intrusion
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+# Challenge 024 — GroundLink Intrusion: Ten Techniques (Cloud Attack Forensics).
+#
+# Contributed by the DEF CON Cloud Village. An AWS cloud-forensics investigation
+# worked entirely from one sanitized native CloudTrail corpus — 211 records, of
+# which 10 form the incident chain and 201 are routine or decoy. You reconstruct
+# the intrusion with `jq` and answer ten objectives.
+#
+#   kubectl --context dc34 -n challenge-024 exec -it challenge-024 -- sh
+#   #  then: cd /forensics ; cat README.md ; sha256sum -c checksums.sha256
+#   kubectl --context dc34 -n challenge-024 cp challenge-024:/forensics ./challenge-024-forensics
+#
+# Unlike the malware challenges there is no sample here at all — nothing was ever
+# detonated to produce this evidence, so the pod needs no privileges and no Kyverno
+# PolicyException. The securityContext below satisfies the cluster's restricted Pod
+# Security policies (drop ALL caps, no privilege escalation, run as non-root,
+# RuntimeDefault seccomp, read-only root filesystem). A bare `kubectl run` is
+# rejected by admission precisely because it omits these — apply this manifest.
+#
+# Published package: ghcr.io/blueteamvillage/challenge-024:latest
+# The published package is a multi-arch manifest list (linux/amd64 + linux/arm64), so
+# a kubelet pulling it selects your node's native architecture. An image side-loaded
+# from a local build is whatever platform that build targeted — amd64 by default,
+# which runs under QEMU emulation on an arm64 node like every other challenge here.
+# The package is PRIVATE until the CTF opens — see README "Pulling challenge images"
+# for the login/pull/load steps.
+#
+# An optional offline browser aid ships at /forensics/workbench. It is not required —
+# the CLI/jq path is canonical — but if you want it, start the server INSIDE the pod
+# first, then forward:
+#   kubectl -n challenge-024 exec challenge-024 -- sh -c 'httpd -f -p 8080 -h /forensics/workbench >/dev/null 2>&1 &'
+#   kubectl -n challenge-024 exec challenge-024 -- netstat -ltn | grep 8080     # confirm a listener
+#   kubectl -n challenge-024 port-forward pod/challenge-024 8080:8080
+# then open http://127.0.0.1:8080/. port-forward proxies through the API server, so
+# the namespace's auto-generated default-deny egress policy does not get in the way.
+#
+# If port-forward reports "lost connection to pod" right after "Handling connection",
+# nothing is listening on 8080 — httpd is started by hand and does not survive a pod
+# recreate. Start it again. See challenges/README.md for the full symptom.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: challenge-024
+  namespace: challenge-024
+  labels:
+    app: challenge-024
+    challenge: "024"
+    scenario: groundlink-intrusion
+    kind: challenge
+spec:
+  # Static evidence; if it stops there is nothing to recover by restarting.
+  restartPolicy: Never
+  # The evidence pod has no business talking to the k8s API.
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: challenge
+      image: ghcr.io/blueteamvillage/challenge-024:latest
+      # IfNotPresent prefers an image already loaded into the dc34 node;
+      # otherwise the kubelet pulls from GHCR (needs the package to be accessible).
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+        seccompProfile:
+          type: RuntimeDefault
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+          ephemeral-storage: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+          ephemeral-storage: 128Mi
+      volumeMounts:
+        # The root filesystem is read-only and /work is $HOME, so this mount is
+        # what gives you somewhere to write notes and jq output. Everything under
+        # /forensics stays read-only.
+        - name: work
+          mountPath: /work
+  volumes:
+    - name: work
+      emptyDir:
+        sizeLimit: 128Mi

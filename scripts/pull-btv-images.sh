@@ -14,9 +14,15 @@
 # packages are public (no GitHub account needed). --all-tags still needs a
 # token, because tag listing goes through the packages API.
 #
+# --make-public audits every package's visibility and walks you through
+# flipping the private ones. GitHub has no API for the visibility change
+# (REST covers list/get/delete/restore only), so the script opens each
+# package's settings page for the one remaining click.
+#
 #   ./pull-btv-images.sh --dry-run
 #   ./pull-btv-images.sh --profile dc34
 #   ./pull-btv-images.sh --filter '^challenge-' --all-tags
+#   ./pull-btv-images.sh --make-public
 #
 # Kept compatible with bash 3.2, which is what stock macOS still ships.
 #
@@ -29,6 +35,7 @@ ALL_TAGS=0
 FILTER=""
 DRY_RUN=0
 JOBS=3
+MAKE_PUBLIC=0
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CHALLENGES_DIR="${CHALLENGES_DIR:-$SCRIPT_DIR/../challenges}"
@@ -38,7 +45,7 @@ info() { printf '\033[36m==>\033[0m %s\n' "$*"; }
 warn() { printf '\033[33mwarn:\033[0m %s\n' "$*" >&2; }
 
 usage() {
-  sed -n '3,20p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '3,26p' "$0" | sed 's/^# \{0,1\}//'
   cat <<'EOF'
 
 Options:
@@ -50,6 +57,9 @@ Options:
   -f, --filter REGEX   only packages whose name matches this ERE
   -j, --jobs N         parallel pulls (default: 3)
   -n, --dry-run        list what would be pulled, then stop
+      --make-public    audit package visibility and open the settings page of
+                       each private package so it can be made public (needs a
+                       token; skips pulling)
   -h, --help           show this help
 
 Without a token the script reads image names from challenges/*.yaml and pulls
@@ -66,6 +76,7 @@ while [ $# -gt 0 ]; do
     -a|--all-tags) ALL_TAGS=1; shift ;;
     -f|--filter)   FILTER="${2:?--filter needs a value}"; shift 2 ;;
     -j|--jobs)     JOBS="${2:?--jobs needs a value}"; shift 2 ;;
+    --make-public) MAKE_PUBLIC=1; shift ;;
     -n|--dry-run)  DRY_RUN=1; shift ;;
     -h|--help)     usage; exit 0 ;;
     *)             die "unknown argument: $1 (try --help)" ;;
@@ -73,9 +84,11 @@ while [ $# -gt 0 ]; do
 done
 
 # ---------------------------------------------------------------- preflight --
-command -v docker >/dev/null 2>&1 || die "docker is required but not installed"
-docker info >/dev/null 2>&1 \
-  || die "the Docker daemon isn't reachable — start Docker Desktop / colima first"
+if [ "$MAKE_PUBLIC" -eq 0 ]; then
+  command -v docker >/dev/null 2>&1 || die "docker is required but not installed"
+  docker info >/dev/null 2>&1 \
+    || die "the Docker daemon isn't reachable — start Docker Desktop / colima first"
+fi
 
 # Prefer an explicit token, else borrow the gh CLI's. Held in a variable only:
 # never printed, never placed in argv, never written to disk.
@@ -86,6 +99,8 @@ fi
 
 PUBLIC_MODE=0
 if [ -z "$TOKEN" ]; then
+  [ "$MAKE_PUBLIC" -eq 0 ] \
+    || die "--make-public needs a GitHub token (packages API). Run 'gh auth login' or export GHCR_TOKEN."
   PUBLIC_MODE=1
   warn "no GitHub token — public mode: discovering from manifests, pulling anonymously"
   warn "for private packages (or --all-tags), run 'gh auth login' or export GHCR_TOKEN"
@@ -153,6 +168,53 @@ fi
 
 # Package names may contain '/', which has to be percent-encoded in the API path.
 urlencode_path() { printf '%s' "$1" | sed 's|/|%2F|g'; }
+
+# ------------------------------------------------------------- make-public --
+# GitHub exposes no API to change package visibility (REST covers list/get/
+# delete/restore only), so the flip itself is one click per package in its
+# settings page. Audit what's private, print the URLs, and offer to open them.
+if [ "$MAKE_PUBLIC" -eq 1 ]; then
+  info "checking visibility of ${#PACKAGES[@]} package(s) in '$ORG'"
+  PRIVATE_PKGS=()
+  for pkg in "${PACKAGES[@]}"; do
+    enc="$(urlencode_path "$pkg")"
+    vis="$(gh api "/orgs/$ORG/packages/container/$enc" --jq .visibility 2>/dev/null || echo unknown)"
+    printf '  %-8s %s\n' "$vis" "$pkg"
+    [ "$vis" = "public" ] || PRIVATE_PKGS+=("$pkg")
+  done
+
+  if [ ${#PRIVATE_PKGS[@]} -eq 0 ]; then
+    info "all ${#PACKAGES[@]} package(s) are already public — nothing to do"
+    exit 0
+  fi
+
+  info "${#PRIVATE_PKGS[@]} package(s) still need the flip. For each page below:"
+  info "Package settings -> Danger Zone -> Change visibility -> Public"
+  for pkg in "${PRIVATE_PKGS[@]}"; do
+    printf '  https://github.com/orgs/%s/packages/container/%s/settings\n' \
+      "$ORG" "$(urlencode_path "$pkg")"
+  done
+
+  [ "$DRY_RUN" -eq 0 ] || exit 0
+
+  OPENER=""
+  if command -v open >/dev/null 2>&1; then OPENER="open"
+  elif command -v xdg-open >/dev/null 2>&1; then OPENER="xdg-open"
+  fi
+  if [ -n "$OPENER" ] && [ -t 0 ]; then
+    printf 'Open all %d settings page(s) in your browser now? [y/N] ' "${#PRIVATE_PKGS[@]}"
+    read -r reply || reply=""
+    case "$reply" in
+      [Yy]*)
+        for pkg in "${PRIVATE_PKGS[@]}"; do
+          "$OPENER" "https://github.com/orgs/$ORG/packages/container/$(urlencode_path "$pkg")/settings"
+        done
+        info "re-run with --make-public to verify everything ended up public"
+        ;;
+    esac
+  fi
+  exit 0
+fi
 
 # Expand packages into concrete image references.
 REFS=()

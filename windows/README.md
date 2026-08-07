@@ -79,6 +79,8 @@ winget install -e --id Kubernetes.minikube
 winget install -e --id Kubernetes.kubectl
 winget install -e --id Helm.Helm
 winget install -e --id Git.Git
+winget install -e --id jqlang.jq
+winget install -e --id GitHub.cli
 scoop install helmfile        # only if you already use scoop — otherwise download helmfile.exe from GitHub releases
 winget install -e --id Derailed.k9s   # optional
 

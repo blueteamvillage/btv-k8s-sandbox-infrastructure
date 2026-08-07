@@ -34,16 +34,25 @@ metadata:
 # rejected by admission precisely because it omits these — apply this manifest.
 #
 # Published package: ghcr.io/blueteamvillage/challenge-024:latest
-# Multi-arch (linux/amd64 + linux/arm64), so it runs natively on both Apple Silicon
-# and x86 nodes. The package is PRIVATE until the CTF opens — see README "Pulling
-# challenge images" for the login/pull/load steps.
+# The published package is a multi-arch manifest list (linux/amd64 + linux/arm64), so
+# a kubelet pulling it selects your node's native architecture. An image side-loaded
+# from a local build is whatever platform that build targeted — amd64 by default,
+# which runs under QEMU emulation on an arm64 node like every other challenge here.
+# The package is PRIVATE until the CTF opens — see README "Pulling challenge images"
+# for the login/pull/load steps.
 #
 # An optional offline browser aid ships at /forensics/workbench. It is not required —
-# the CLI/jq path is canonical — but if you want it:
-#   kubectl --context dc34 -n challenge-024 exec challenge-024 -- httpd -f -p 8080 -h /forensics/workbench &
-#   kubectl --context dc34 -n challenge-024 port-forward pod/challenge-024 8080:8080
+# the CLI/jq path is canonical — but if you want it, start the server INSIDE the pod
+# first, then forward:
+#   kubectl -n challenge-024 exec challenge-024 -- sh -c 'httpd -f -p 8080 -h /forensics/workbench >/dev/null 2>&1 &'
+#   kubectl -n challenge-024 exec challenge-024 -- netstat -ltn | grep 8080     # confirm a listener
+#   kubectl -n challenge-024 port-forward pod/challenge-024 8080:8080
 # then open http://127.0.0.1:8080/. port-forward proxies through the API server, so
 # the namespace's auto-generated default-deny egress policy does not get in the way.
+#
+# If port-forward reports "lost connection to pod" right after "Handling connection",
+# nothing is listening on 8080 — httpd is started by hand and does not survive a pod
+# recreate. Start it again. See challenges/README.md for the full symptom.
 apiVersion: v1
 kind: Pod
 metadata:

@@ -2,7 +2,7 @@
 
 Every file here is a ready-to-apply Kubernetes manifest for one CTF challenge. Each one is **self-contained** — a single `apply` creates the challenge's namespace *and* its pod, so there's no setup order to get right.
 
-**Everything in this directory is inert.** These pods carry pre-collected forensic evidence — logs, Tetragon event captures, artifact dumps, cloud audit trails — and nothing in them detonates. They run unprivileged, as a non-root user, with all capabilities dropped, which is why they pass the sandbox's restricted Pod Security enforcement without any exception. The live-malware **"Option B"** variants that the CTF site advertises are not in this repo; those come through the event channels.
+**Everything in this directory is inert.** These pods carry pre-collected forensic evidence — logs, Tetragon event captures, artifact dumps, cloud audit trails — and nothing in them detonates. They run unprivileged, as a non-root user, with all capabilities dropped, which is why they pass the sandbox's restricted Pod Security enforcement without any exception. The live-malware **"Option B"** variants are opt-in and live in [`../challenges-live-malware/`](../challenges-live-malware) instead; nothing here fetches or executes a sample.
 
 New here? Start with the [main README](../README.md) to get the `dc34` cluster running, then come back.
 

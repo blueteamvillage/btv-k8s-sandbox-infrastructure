@@ -125,16 +125,51 @@ cd /forensics && sha256sum -c checksums.sha256 && cat README.md
 Two things differ from the other challenges:
 
 - **`/forensics` is read-only and `/work` is where you write.** `/work` is an `emptyDir` and also `$HOME`, so shell history and `jq` output land there. It's wiped when the pod goes away — `kubectl cp` anything you want to keep.
-- **The image is multi-arch** (`linux/amd64` + `linux/arm64`), so it runs natively on Apple Silicon instead of under emulation like the malware images.
+- **The published package is multi-arch** (`linux/amd64` + `linux/arm64`), so pulling it from GHCR gets you your node's native architecture rather than an emulated one. Note this applies to a *pull*: an image side-loaded from a local build is whatever platform that build targeted, and the default is `amd64`, which runs under QEMU on an arm64 node exactly like the malware images. `ps -o args` inside the pod will show a `qemu-x86_64` interpreter if you're emulated. Nothing about the challenge depends on this either way — it's `jq` over a 33 KB file.
 
-There's also an optional offline browser aid at `/forensics/workbench`. It's a convenience, not the intended path — the CLI and `jq` workflow is canonical, and the workbench grades nothing and reveals nothing:
+There's also an optional offline browser aid at `/forensics/workbench`. It's a convenience, not the intended path — the CLI and `jq` workflow is canonical, and the workbench grades nothing and reveals nothing.
+
+It takes **two steps**, and they're easy to half-do. Start the web server *inside* the pod first:
 
 ```sh
-kubectl --context dc34 -n challenge-024 exec challenge-024 -- httpd -f -p 8080 -h /forensics/workbench &
+kubectl --context dc34 -n challenge-024 exec challenge-024 -- \
+  sh -c 'httpd -f -p 8080 -h /forensics/workbench >/dev/null 2>&1 &'
+```
+
+Confirm something is actually listening before you forward — this one line saves a lot of confusion:
+
+```sh
+kubectl --context dc34 -n challenge-024 exec challenge-024 -- netstat -ltn | grep 8080
+```
+
+Then forward it and open <http://127.0.0.1:8080/>:
+
+```sh
 kubectl --context dc34 -n challenge-024 port-forward pod/challenge-024 8080:8080
 ```
 
-Then open <http://127.0.0.1:8080/>. `port-forward` goes through the API server, so the namespace's default-deny egress policy doesn't block it.
+`port-forward` proxies through the API server rather than the pod network, so the namespace's default-deny egress policy doesn't block it.
+
+### "port-forward keeps breaking"
+
+If you see this — port-forward announces itself, then dies the moment you load the page:
+
+```text
+Forwarding from 127.0.0.1:8080 -> 8080
+Handling connection for 8080
+an error occurred forwarding 8080 -> 8080: ... socat[...] E connect(5, AF=2 127.0.0.1:8080, 16): Connection refused
+error: lost connection to pod
+```
+
+…then `port-forward` is fine and **nothing is listening on 8080 inside the pod.** It is relaying a connection-refused from the container. `curl` reports the same thing as `curl: (52) Empty reply from server`.
+
+Almost always one of:
+
+- **`httpd` was never started.** Run the first command above.
+- **The pod was recreated.** `httpd` is started by hand and does not come back on its own; a `delete pod` / re-apply cycle leaves you with no listener. Start it again.
+- **`httpd` was started but died.** Check with `pgrep -a httpd` inside the pod.
+
+Deliberately *not* the cause, so don't go hunting there: the default-deny NetworkPolicy (port-forward doesn't traverse the pod network), and the read-only root filesystem (`httpd` serves `/forensics` read-only and writes nothing).
 
 ## Cleaning up
 

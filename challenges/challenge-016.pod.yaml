@@ -9,7 +9,7 @@ metadata:
   name: challenge-016
   labels:
     challenge: "016"
-    scenario: syslogk-starttls-shell-rootkit
+    scenario: incident-016
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: restricted
@@ -36,7 +36,7 @@ metadata:
   labels:
     app: challenge-016
     challenge: "016"
-    scenario: syslogk-starttls-shell-rootkit
+    scenario: incident-016
 spec:
   # Static artifact; if it stops there is nothing to recover by restarting.
   restartPolicy: Never

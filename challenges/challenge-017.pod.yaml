@@ -9,7 +9,7 @@ metadata:
   name: challenge-017
   labels:
     challenge: "017"
-    scenario: sysrv-xmrig-base64-coinminer-dropper
+    scenario: incident-017
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: restricted
@@ -36,7 +36,7 @@ metadata:
   labels:
     app: challenge-017
     challenge: "017"
-    scenario: sysrv-xmrig-base64-coinminer-dropper
+    scenario: incident-017
 spec:
   # Static artifact; if it stops there is nothing to recover by restarting.
   restartPolicy: Never

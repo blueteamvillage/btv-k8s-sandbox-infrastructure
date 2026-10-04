@@ -9,7 +9,7 @@ metadata:
   name: challenge-011
   labels:
     challenge: "011"
-    scenario: rocke-cryptominer-dropper
+    scenario: incident-011
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: restricted
@@ -36,7 +36,7 @@ metadata:
   labels:
     app: challenge-011
     challenge: "011"
-    scenario: rocke-cryptominer-dropper
+    scenario: incident-011
 spec:
   # Static artifact; if it stops there is nothing to recover by restarting.
   restartPolicy: Never

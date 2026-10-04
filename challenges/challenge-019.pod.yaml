@@ -9,7 +9,7 @@ metadata:
   name: challenge-019
   labels:
     challenge: "019"
-    scenario: webshell-rat-persistence
+    scenario: incident-019
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: restricted
@@ -36,7 +36,7 @@ metadata:
   labels:
     app: challenge-019
     challenge: "019"
-    scenario: webshell-rat-persistence
+    scenario: incident-019
 spec:
   # Static artifact; if it stops there is nothing to recover by restarting.
   restartPolicy: Never

@@ -9,7 +9,7 @@ metadata:
   name: challenge-003
   labels:
     challenge: "003"
-    scenario: kinsing-sustes-dropper
+    scenario: incident-003
     pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: restricted
@@ -36,7 +36,7 @@ metadata:
   labels:
     app: challenge-003
     challenge: "003"
-    scenario: kinsing-sustes-dropper
+    scenario: incident-003
 spec:
   # Static artifact; if it stops there is nothing to recover by restarting.
   restartPolicy: Never

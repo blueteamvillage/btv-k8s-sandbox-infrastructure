@@ -23,15 +23,15 @@ Why you care as a contestant:
 
 ## Requirements
 
-All platforms: **~4 CPU cores and 8 GB RAM free** for the VM and ~20 GB of disk. Pulling challenge images needs no account — they go public when the village opens (see [Pulling challenge images](#pulling-challenge-images)). A GitHub login is only needed if you use the bulk pull script, which lists the org's packages through the API.
+All platforms: **~4 CPU cores and 8 GB RAM free** for the VM and ~20 GB of disk. **Windows needs 16 GB of RAM in the machine:** Docker Desktop's WSL2 engine gets half of the machine's memory by default and the cluster asks for 6 GB, so on an 8 GB laptop `up` fails with a memory error. Pulling challenge images needs no account — they go public when the village opens (see [Pulling challenge images](#pulling-challenge-images)). A GitHub login is only needed if you use the bulk pull script, which lists the org's packages through the API.
 
 - **macOS** — [Homebrew](https://brew.sh); the `make` workflow installs everything else (see [`Brewfile`](Brewfile): minikube, kubectl, helm, helmfile, k9s, colima, docker CLI).
-- **Windows 10/11** — winget (App Installer, preinstalled on modern Windows); `windows\start.cmd tools` installs everything else, **including Docker Desktop**. Enable Docker Desktop's WSL2 engine and start it before running `up`. See [`windows/README.md`](windows/README.md).
-- **Linux** — everything except colima is cross-platform. Install `minikube`, `kubectl`, `helm`, and `helmfile`, point Docker at your local daemon, then run the same `minikube start --profile dc34 --driver=docker --cpus=4 --memory=6144 --cni=cilium --addons=metrics-server` followed by `helmfile sync`. Run both from the cloned repo root, where `helmfile.yaml` lives. Ask in the BTV Discord if you get stuck.
+- **Windows 10/11** — winget (App Installer, preinstalled on modern Windows); `windows\start.cmd tools` installs everything else, **including Docker Desktop**. `tools` does not install WSL itself: in an **admin** PowerShell run `wsl --install --no-distribution` (reboot if Windows asks) before you start Docker Desktop. Enable Docker Desktop's WSL2 engine and start it before running `up`. See [`windows/README.md`](windows/README.md).
+- **Linux** — everything except colima is cross-platform. Install `minikube`, `kubectl`, `helm`, and `helmfile`, point Docker at your local daemon (if you add yourself to the `docker` group with `sudo usermod -aG docker $USER`, log out and back in first, or minikube's docker driver can't reach the daemon), then run the same `minikube start --profile dc34 --driver=docker --cpus=4 --memory=6144 --cni=cilium --addons=metrics-server` followed by `helmfile sync`. Run both from the cloned repo root, where `helmfile.yaml` lives. Ask in the BTV Discord if you get stuck.
 
 ## Quick start
 
-Clone the repo:
+Clone the repo. On Windows without Git, run `winget install -e --id Git.Git` first and open a new terminal (`tools` installs Git too, but it runs from inside the clone):
 
 ```sh
 git clone https://github.com/blueteamvillage/btv-k8s-sandbox-infrastructure.git
@@ -63,7 +63,7 @@ kubectl --context dc34 get pods -A   # everything Running/Completed
 | `make up` | `start.cmd up` | Start the VM + cluster, deploy the sandbox stack. Safe to re-run. |
 | `make status` | `start.cmd status` | Show VM and cluster health. |
 | — | `start.cmd verify` | Automated health check (cluster, nodes, Tetragon, Kyverno). |
-| `make stop` | `start.cmd stop` | Pause the cluster — **state is preserved**, `up` resumes where you left off. |
+| `make stop` | `start.cmd stop` | Pause the cluster; `up` brings the sandbox stack back. **Challenge pods do not come back** after `stop`/`up` or a reboot — redeploy them (see [Removing a challenge](#removing-a-challenge), then apply again). Copy out anything you need first. |
 | `make clean` | `start.cmd clean` | Tear down the cluster (macOS: also deletes the VM and its disk; Windows: Docker Desktop and images pulled into it are untouched). |
 | `make tools` | `start.cmd tools` | Just install/update the CLI tools (Homebrew / winget). |
 
@@ -179,7 +179,7 @@ kubectl --context dc34 get networkpolicy,resourcequota,limitrange -n <namespace>
 
 ## After the competition
 
-- `make stop` / `windows\start.cmd stop` — pause the sandbox and free CPU/RAM; your cluster state survives.
+- `make stop` / `windows\start.cmd stop` — pause the sandbox and free CPU/RAM; the cluster survives, but challenge pods must be redeployed after `up`.
 - `make clean` / `windows\start.cmd clean` — delete the cluster (and on macOS the VM and its disk) entirely.
 - `docker logout ghcr.io` — drop the organizers' pull token, which Docker otherwise leaves base64-encoded in `~/.docker/config.json`.
 

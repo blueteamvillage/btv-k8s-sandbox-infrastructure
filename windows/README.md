@@ -8,14 +8,14 @@ Windows path to the **same sandbox as macOS** (`make up`): a local minikube clus
 |----------|---------|-------|
 | OS | Windows 10/11 x64 | Virtualization enabled in firmware (required for WSL2) |
 | CPU | 4 cores | Matches `minikube start --cpus=4` |
-| RAM | 8 GiB | minikube node gets 6144 MiB; leave headroom for Docker Desktop |
+| RAM | 16 GiB | minikube node gets 6144 MiB, and Docker Desktop's WSL2 engine gets half of the machine's memory by default — 8 GiB machines fail at `up` |
 | Disk | 20 GiB free | minikube image + Helm charts + challenge images |
 
 You'll also need **winget** (App Installer, preinstalled on modern Windows — otherwise grab it from the Microsoft Store).
 
 ## Quick start
 
-From a PowerShell or cmd prompt in the repo root:
+No Git yet? Run `winget install -e --id Git.Git`, open a new terminal, and clone the repo. Then, from a PowerShell or cmd prompt in the repo root:
 
 ```powershell
 windows\start.cmd tools    # once — installs Docker Desktop, minikube, kubectl, helm, helmfile, Git
@@ -25,9 +25,10 @@ windows\start.cmd verify   # automated health check
 
 Between `tools` and `up`:
 
-1. Start **Docker Desktop** and wait until the whale icon shows **Running**.
-2. Check **Settings → General → Use the WSL 2 based engine** (reboot if prompted).
-3. Open a **new terminal** so the freshly installed tools are on `PATH`.
+1. In an **admin** PowerShell run `wsl --install --no-distribution` — `tools` does not install WSL, and Docker Desktop stops with "WSL not installed" without it. Reboot if Windows asks.
+2. Start **Docker Desktop** and wait until the whale icon shows **Running**. If it started before WSL was installed, quit it and start it again.
+3. Check **Settings → General → Use the WSL 2 based engine** (reboot if prompted).
+4. Open a **new terminal** so the freshly installed tools are on `PATH`.
 
 `start.cmd` bypasses PowerShell execution policy, so no `Set-ExecutionPolicy` changes are needed. All commands:
 
